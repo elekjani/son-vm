@@ -1,6 +1,8 @@
 from son.vmmanager.jsonserver import IJsonProcessor
+from son.vmmanager.processors import utils
+from son.vmmanager.processors.utils import REGEX_IPV4_MASK
+from son.vmmanager.processors.utils import REGEX_IPV4
 
-import subprocess
 import logging
 import tempfile
 import shutil
@@ -8,108 +10,39 @@ import time
 import re
 import os
 
-REGEX_IPV4_NUMBER = '[0-9]{1,3}'
-REGEX_IPV4 = r'\.'.join([REGEX_IPV4_NUMBER] * 4)
-REGEX_IPV4_MASK = REGEX_IPV4 + '/[0-9]{1,2}'
-
 
 class MME_MessageParser(object):
 
-    MSG_HOSTS = 'hosts'
-    MSG_HOST_NAME = 'host_name'
-    MSG_IP_ADDRESS = 'ip'
-    MSG_MME_HOST = 'mme'
-    MSG_HSS_HOST = 'hss'
-    MSG_SPGW_HOST = 'spgw'
-
     MSG_S11_INTERFACE = 's11_interface'
-
-    MSG_COMMAND = 'command'
-    MSG_COMMAND_START = 'start'
-    MSG_COMMAND_STOP = 'stop'
-    MSG_COMMAND_RESTART = 'restart'
-    MSG_MESSAGES = [MSG_COMMAND_START, MSG_COMMAND_STOP, MSG_COMMAND_RESTART]
 
     def __init__(self, json_dict):
         self.logger = logging.getLogger(MME_MessageParser.__name__)
-        self._json_dict = json_dict
+        self.msg_dict = json_dict
+        self.host_parser = utils.HostMessageParser(json_dict)
+        self.command_parser = utils.CommandMessageParser(json_dict)
 
     def parse(self):
         mc = MME_Config()
 
-        if self.MSG_HOSTS in self._json_dict:
-
-            hosts_dict  = self._json_dict[self.MSG_HOSTS]
-
-            if self.MSG_MME_HOST in hosts_dict:
-                mc.mme_host, mc.mme_ip = self._parse_host(hosts_dict[self.MSG_MME_HOST])
-                self.logger.info('Got host configuration for MME: '
-                                 '%s (%s)' % (mc.mme_host, mc.mme_ip))
-
-            if self.MSG_HSS_HOST in hosts_dict:
-                mc.hss_host, mc.hss_ip = self._parse_host(hosts_dict[self.MSG_HSS_HOST])
-                self.logger.info('Got host configuration for HSS: '
-                                 '%s (%s)' % (mc.hss_host, mc.hss_ip))
-
-            if self.MSG_SPGW_HOST in hosts_dict:
-                mc.spgw_host, mc.spgw_ip = self._parse_host(hosts_dict[self.MSG_SPGW_HOST])
-                self.logger.info('Got host configuration for SPGW: '
-                                 '%s (%s)' % (mc.spgw_host, mc.spgw_ip))
-
-        if self.MSG_S11_INTERFACE in self._json_dict:
-            mc.s11_interface = self._json_dict[self.MSG_S11_INTERFACE]
+        if self.MSG_S11_INTERFACE in self.msg_dict:
+            mc.s11_interface = self.msg_dict[self.MSG_S11_INTERFACE]
             self.logger.info('Got S11 interface coniguration: '
                              '%s' % mc.s11_interface)
 
-        if self.MSG_COMMAND in self._json_dict:
-            cmd = self._json_dict[self.MSG_COMMAND]
-            if cmd not in self.MSG_MESSAGES:
-                self.logger.warning('Got invalid command: %s', cmd)
-            else:
-                mc.command = cmd
-            self.logger.info('Got command: %s' % mc.command)
-
+        self.host_parser.parse(mc)
+        self.command_parser.parse(mc)
 
         return mc
 
-    def _parse_host(self, host_dict):
-        if self.MSG_HOST_NAME not in host_dict:
-            self.logger.warning('Host configuration is not complete.')
-            self.logger.warning('\tNo hostname is given '
-                             '(key: %s)' % self.MSG_HOST_NAME)
-            return None, None
 
-        if self.MSG_IP_ADDRESS not in host_dict:
-            self.logger.warning('Host configuration is not complete.')
-            self.logger.warning('\tNo IP address is given '
-                             '(key: %s)' % self.MSG_IP_ADDRESS)
-            return None, None
+class MME_Config(utils.HostConfig, utils.CommandConfig):
 
-        host, ip = host_dict[self.MSG_HOST_NAME], host_dict[self.MSG_IP_ADDRESS]
-        if re.match(REGEX_IPV4_MASK, ip) is None:
-            self.logger.warning('Got invalid IP address %s', ip)
-            host, ip = None, None
-
-        return host, ip
-
-
-class MME_Config(object):
-
-    def __init__(self, mme_host = None, mme_ip = None,
-                 hss_host = None, hss_ip = None,
-                 spgw_host = None, spgw_ip = None,
-                 s11_interface = None, command = None):
-        self.mme_host = mme_host
-        self.mme_ip = mme_ip
-        self.hss_host = hss_host
-        self.hss_ip = hss_ip
-        self.spgw_host = spgw_host
-        self.spgw_ip = spgw_ip
+    def __init__(self, s11_interface = None, **kwargs):
         self.s11_interface = s11_interface
-        self.command = command
+        super(self.__class__, self).__init__(**kwargs)
 
 
-class MME_Configurator(object):
+class MME_Configurator(utils.HostConfigurator):
 
     REGEX_S1_IPV4 = '(MME_IPV4_ADDRESS_FOR_S1_MME += )"%s"' % REGEX_IPV4_MASK
     REGEX_S11_INTERFACE = '(MME_INTERFACE_NAME_FOR_S11_MME += )"[a-z0-9]+"'
@@ -121,54 +54,16 @@ class MME_Configurator(object):
     REGEX_CONNECT_TO = r'(ConnectTo = )"%s"' % REGEX_IPV4
     REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
 
-    def __init__(self, config_path, fd_config_path, host_file_path):
+    def __init__(self, config_path, fd_config_path, *args, **kwargs):
         self.logger = logging.getLogger(MME_Configurator.__name__)
         self._mme_config_path = config_path
         self._mme_fd_config_path = fd_config_path
-        self._host_file_path = host_file_path
+        super(self.__class__, self).__init__(*args, **kwargs)
 
     def configure(self, mme_config):
         self._configure_mme(mme_config)
         self._configure_mme_freediameter(mme_config)
-        self._configure_host_file(mme_config)
-
-    def _configure_host_file(self, mme_config):
-        if not os.path.isfile(self._host_file_path):
-            self.logger.warning('Host file is not found at %s', self._host_file_path)
-            return
-
-        mme_host, mme_ip = mme_config.mme_host, self._ip(mme_config.mme_ip)
-        hss_host, hss_ip = mme_config.hss_host, self._ip(mme_config.hss_ip)
-
-        config_mme = False
-        if mme_host is not None and mme_ip is not None:
-            config_mme = True
-
-        config_hss = False
-        if hss_host is not None and hss_ip is not None:
-            config_hss = True
-
-        new_content = ""
-        with open(self._host_file_path, 'r') as f:
-            for line in f:
-                self._current_line = line
-                if config_mme and mme_host in line or mme_ip in line:
-                    self._current_line = '%s %s\n' % (mme_ip, mme_host)
-                    config_mme = False
-
-                if config_hss and hss_host in line or hss_ip in line:
-                    self._current_line = '%s %s\n' % (hss_ip, hss_host)
-                    config_hss = False
-
-                new_content += self._current_line
-
-        if config_mme:
-            new_content += '%s %s\n' % (mme_ip, mme_host)
-
-        if config_hss:
-            new_content += '%s %s\n' % (hss_ip, hss_host)
-
-        self._write_out(new_content, self._host_file_path)
+        super(self.__class__, self).configure(mme_config)
 
     def _configure_mme_freediameter(self, mme_config):
         if not os.path.isfile(self._mme_fd_config_path):
@@ -253,60 +148,12 @@ class MME_Configurator(object):
         os.remove(tmp_file)
 
 
-class MME_Runner(object):
+class MME_Runner(utils.Runner):
 
     EXECUTABLE = '~/openair-cn/SCRIPTS/run_mme'
 
     def __init__(self, executable = EXECUTABLE):
-        self.logger = logging.getLogger(MME_Runner.__name__)
-        self._executable = executable
-        self._task = None
-
-    def start(self):
-        if self._task is not None:
-            self.logger.warn('Unable to start task MME,'
-                             ' it\'s already started')
-            return
-
-        self._task = subprocess.Popen(self._executable,
-                                      stdin = subprocess.PIPE,
-                                      stdout = subprocess.PIPE,
-                                      stderr = subprocess.STDOUT,
-                                      bufsize = 4096,
-                                      shell = True)
-
-    def stop(self):
-        if self._task is None:
-            self.logger.warn('Unable to stop task MME,'
-                             ' it\'s not started')
-            return
-
-        self._task.kill()
-        self._task = None
-
-    def restart(self):
-        if self._task is None:
-            self.start()
-        else:
-            self.stop()
-            self.start()
-
-    def getOutput(self):
-        content = ""
-        for line in self._task.stdout:
-            content += line.decode().replace('\n', '').replace('\r', '')
-
-        return content
-
-    def isRunning(self):
-        returncode = self._task.poll()
-        if returncode is None:
-            return True
-        else:
-            return False
-
-    def getReturnCode(self):
-        return self._task.poll()
+        super(self.__class__, self).__init__(executable)
 
 
 class MME_Processor(IJsonProcessor):

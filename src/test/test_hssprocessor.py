@@ -1,4 +1,4 @@
-import son.vmmanager.processors.mme_processor as mme_p
+import son.vmmanager.processors.hss_processor as hss_p
 
 from unittest.mock import patch
 from unittest.mock import Mock
@@ -9,70 +9,70 @@ import os
 
 logging.basicConfig(level=logging.DEBUG)
 
-class MME_Processor(unittest.TestCase):
+class HSS_Processor(unittest.TestCase):
 
-    @patch('son.vmmanager.processors.mme_processor.MME_Runner')
-    @patch('son.vmmanager.processors.mme_processor.MME_Configurator')
-    @patch('son.vmmanager.processors.mme_processor.MME_MessageParser')
-    def testProcess(self, MME_MessageParserMock, MME_ConfiguratorMock, MME_RunnerMock):
-        MME_MessageParserMock.return_value = Mock(wraps = MME_MessageParserMock)
-        MME_ConfiguratorMock.return_value = Mock(wraps = MME_ConfiguratorMock)
-        MME_RunnerMock.return_value = Mock(wraps = MME_RunnerMock)
-
-        config_dict = {}
-
-        processor = mme_p.MME_Processor()
-        processor.process(config_dict)
-
-        MME_MessageParserMock.assert_called_once_with(config_dict)
-        MME_MessageParserMock.parse.assert_called_once()
-
-        MME_ConfiguratorMock.assert_called_once()
-        MME_ConfiguratorMock.configure.assert_called_once()
-
-        MME_RunnerMock.assert_called_once()
-
-    @patch('son.vmmanager.processors.mme_processor.MME_Runner')
-    @patch('son.vmmanager.processors.mme_processor.MME_Configurator')
-    @patch('son.vmmanager.processors.mme_processor.MME_MessageParser')
-    def testProcessIssueCommand(self, MME_MessageParserMock,
-                                MME_ConfiguratorMock, MME_RunnerMock):
-        MME_MessageParserMock.return_value = Mock(wraps = MME_MessageParserMock)
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'start')
-        MME_ConfiguratorMock.return_value = Mock(wraps = MME_ConfiguratorMock)
-        MME_RunnerMock.return_value = Mock(wraps = MME_RunnerMock)
+    @patch('son.vmmanager.processors.hss_processor.HSS_Runner')
+    @patch('son.vmmanager.processors.hss_processor.HSS_Configurator')
+    @patch('son.vmmanager.processors.hss_processor.HSS_MessageParser')
+    def testProcess(self, HSS_MessageParserMock, HSS_ConfiguratorMock, HSS_RunnerMock):
+        HSS_MessageParserMock.return_value = Mock(wraps = HSS_MessageParserMock)
+        HSS_ConfiguratorMock.return_value = Mock(wraps = HSS_ConfiguratorMock)
+        HSS_RunnerMock.return_value = Mock(wraps = HSS_RunnerMock)
 
         config_dict = {}
 
-        processor = mme_p.MME_Processor()
+        processor = hss_p.HSS_Processor()
         processor.process(config_dict)
 
-        MME_MessageParserMock.assert_called_once_with(config_dict)
-        MME_MessageParserMock.parse.assert_called_once()
+        HSS_MessageParserMock.assert_called_once_with(config_dict)
+        HSS_MessageParserMock.parse.assert_called_once()
 
-        MME_ConfiguratorMock.assert_called_once()
-        MME_ConfiguratorMock.configure.assert_called_once()
+        HSS_ConfiguratorMock.assert_called_once()
+        HSS_ConfiguratorMock.configure.assert_called_once()
 
-        MME_RunnerMock.assert_called_once()
-        MME_RunnerMock.start.assert_called_once()
+        HSS_RunnerMock.assert_called_once()
 
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'stop')
+    @patch('son.vmmanager.processors.hss_processor.HSS_Runner')
+    @patch('son.vmmanager.processors.hss_processor.HSS_Configurator')
+    @patch('son.vmmanager.processors.hss_processor.HSS_MessageParser')
+    def testProcessIssueCommand(self, HSS_MessageParserMock,
+                                HSS_ConfiguratorMock, HSS_RunnerMock):
+        HSS_MessageParserMock.return_value = Mock(wraps = HSS_MessageParserMock)
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'start')
+        HSS_ConfiguratorMock.return_value = Mock(wraps = HSS_ConfiguratorMock)
+        HSS_RunnerMock.return_value = Mock(wraps = HSS_RunnerMock)
+
+        config_dict = {}
+
+        processor = hss_p.HSS_Processor()
         processor.process(config_dict)
 
-        MME_RunnerMock.stop.assert_called_once()
+        HSS_MessageParserMock.assert_called_once_with(config_dict)
+        HSS_MessageParserMock.parse.assert_called_once()
 
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'restart')
+        HSS_ConfiguratorMock.assert_called_once()
+        HSS_ConfiguratorMock.configure.assert_called_once()
+
+        HSS_RunnerMock.assert_called_once()
+        HSS_RunnerMock.start.assert_called_once()
+
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'stop')
         processor.process(config_dict)
 
-        MME_RunnerMock.restart.assert_called_once()
+        HSS_RunnerMock.stop.assert_called_once()
+
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'restart')
+        processor.process(config_dict)
+
+        HSS_RunnerMock.restart.assert_called_once()
 
 
-class MME_MsgParser(unittest.TestCase):
+class HSS_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
+        MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
         COMMAND = 'start'
 
         config_dict = {
@@ -82,11 +82,14 @@ class MME_MsgParser(unittest.TestCase):
                 'spgw': {'host_name': SPGW_HOST, 'ip': SPGW_IP},
                 'garbage': [1,2,3]
             },
-            's11_interface': S11_INTERFACE,
+            'mysql': {
+                'user': MYSQL_USER,
+                'pass': MYSQL_PASS
+            },
             'command': COMMAND,
             'garbage': {'key1': 1, 'key2': 2}
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
         self.assertEqual(config.mme_host, MME_HOST)
@@ -95,7 +98,8 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.hss_ip, HSS_IP)
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
-        self.assertEqual(config.s11_interface, S11_INTERFACE)
+        self.assertEqual(config.mysql_user, MYSQL_USER)
+        self.assertEqual(config.mysql_pass, MYSQL_PASS)
         self.assertEqual(config.command, COMMAND)
 
     def testPartlyHostConfig(self):
@@ -110,7 +114,7 @@ class MME_MsgParser(unittest.TestCase):
                 'spgw': {'host_name': SPGW_HOST}
             }
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
         self.assertEqual(config.mme_host, MME_HOST)
@@ -132,7 +136,7 @@ class MME_MsgParser(unittest.TestCase):
                 'spgw': {'host_name': SPGW_HOST, 'ip': SPGW_IP}
             }
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
         self.assertEqual(config.mme_host, MME_HOST)
@@ -146,7 +150,7 @@ class MME_MsgParser(unittest.TestCase):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
+        MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
         COMMAND = 'start'
 
         config_dict = {
@@ -155,10 +159,13 @@ class MME_MsgParser(unittest.TestCase):
                 'hss': {'host_name': HSS_HOST, 'ip': HSS_IP},
                 'spgw': {'host_name': SPGW_HOST, 'ip': SPGW_IP}
             },
-            's11_interface': S11_INTERFACE,
+            'mysql': {
+                'user': MYSQL_USER,
+                'pass': MYSQL_PASS
+            },
             'command': COMMAND
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
         self.assertEqual(config.mme_host, MME_HOST)
@@ -167,50 +174,48 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.hss_ip, HSS_IP)
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
-        self.assertEqual(config.s11_interface, S11_INTERFACE)
+        self.assertEqual(config.mysql_user, MYSQL_USER)
+        self.assertEqual(config.mysql_pass, MYSQL_PASS)
         self.assertEqual(config.command, COMMAND)
 
     def testInvlidIP(self):
-        MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2'
+        HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.2'
 
         config_dict = {
             'hosts': {
-                'mme': {'host_name': MME_HOST, 'ip': MME_IP}
+                'hss': {'host_name': HSS_HOST, 'ip': HSS_IP}
             }
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
-        self.assertEqual(config.mme_host, None)
-        self.assertEqual(config.mme_ip, None)
+        self.assertEqual(config.hss_host, None)
+        self.assertEqual(config.hss_ip, None)
 
     def testInvalidCommand(self):
 
         config_dict = {
             'command': 'invalid_command'
         }
-        parser = mme_p.MME_MessageParser(config_dict)
+        parser = hss_p.HSS_MessageParser(config_dict)
         config = parser.parse()
 
         self.assertEqual(config.command, None)
 
 
-class MME_Configurator(unittest.TestCase):
+class HSS_Configurator(unittest.TestCase):
 
     def setUp(self):
         self.logger = logging.getLogger('test.%s' % self.__class__.__name__)
 
         os_fd, self.host_file = tempfile.mkstemp()
         os.close(os_fd)
-        os_fd, self.mme_config = tempfile.mkstemp()
-        os.close(os_fd)
-        os_fd, self.mme_fd_config = tempfile.mkstemp()
+        os_fd, self.hss_config = tempfile.mkstemp()
         os.close(os_fd)
 
     def tearDown(self):
         os.remove(self.host_file)
-        os.remove(self.mme_config)
-        os.remove(self.mme_fd_config)
+        os.remove(self.hss_config)
 
     def ip(self, masked_ip):
         return masked_ip.split('/')[0] if masked_ip is not None else None
@@ -236,8 +241,7 @@ class MME_Configurator(unittest.TestCase):
                           file_path, self.getContent(file_path))
 
     def testWriteHostFile(self):
-        configurator = mme_p.MME_Configurator(self.mme_config,
-                                              self.mme_fd_config,
+        configurator = hss_p.HSS_Configurator(self.hss_config,
                                               self.host_file)
 
 
@@ -245,7 +249,7 @@ class MME_Configurator(unittest.TestCase):
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
 
-        config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
+        config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
@@ -267,11 +271,10 @@ class MME_Configurator(unittest.TestCase):
         self.writeContent('12.0.0.1 %s\n' % HSS_HOST, self.host_file)
         self.writeContent('%s %s\n' % (CUSTOM_IP, CUSTOM_H), self.host_file)
 
-        configurator = mme_p.MME_Configurator(self.mme_config,
-                                              self.mme_fd_config,
+        configurator = hss_p.HSS_Configurator(self.hss_config,
                                               self.host_file)
 
-        config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
+        config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
@@ -284,77 +287,29 @@ class MME_Configurator(unittest.TestCase):
         self.assertIn('%s %s' % (self.ip(HSS_IP), HSS_HOST), host_file_content)
         self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)
 
-    def testUpdateMMEConfig(self):
-        MME_INTF_S11 = 'MME_INTERFACE_NAME_FOR_S11_MME'
-        MME_IP_S11 = 'MME_IPV4_ADDRESS_FOR_S11_MME'
-        MME_IP_S1 = 'MME_IPV4_ADDRESS_FOR_S1_MME'
-        SPGW_IP_S11 = 'SGW_IPV4_ADDRESS_FOR_S11'
-        self.writeContent('%s = "lo"\n' % MME_INTF_S11, self.mme_config)
-        self.writeContent('%s = "1.1.1.1/8"\n' % MME_IP_S11, self.mme_config)
-        self.writeContent('%s = "2.2.2.2/16"\n' % MME_IP_S1, self.mme_config)
-        self.writeContent('%s = "3.3.3.3/32"\n' % SPGW_IP_S11, self.mme_config)
+    def testUpdateHSSConfig(self):
+        HSS_MYSQL_USER = 'user'
+        HSS_MYSQL_PASS = 'pass'
+        self.writeContent('%s = "@MYSQL_user@"\n' % HSS_MYSQL_USER, self.hss_config)
+        self.writeContent('%s = "@MYSQL_pass@"\n' % HSS_MYSQL_PASS, self.hss_config)
 
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
+        MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
 
-        configurator = mme_p.MME_Configurator(self.mme_config,
-                                              self.mme_fd_config,
+        configurator = hss_p.HSS_Configurator(self.hss_config,
                                               self.host_file)
 
-        config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
+        config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
-                                  s11_interface = S11_INTERFACE)
+                                  mysql_user = MYSQL_USER,
+                                  mysql_pass = MYSQL_PASS)
 
         configurator.configure(config)
 
-        mme_config = self.getContent(self.mme_config)
-        self.assertEqual(len(mme_config.splitlines()), 4)
-        self.assertIn('%s = "%s"' % (MME_INTF_S11, S11_INTERFACE), mme_config)
-        self.assertIn('%s = "%s"' % (MME_IP_S11, MME_IP), mme_config)
-        self.assertIn('%s = "%s"' % (MME_IP_S1, MME_IP), mme_config)
-        self.assertIn('%s = "%s"' % (SPGW_IP_S11, SPGW_IP), mme_config)
-
-    def testUpdateMMEFDConfig(self):
-        IDENTITY = 'Identity'
-        REALM = 'Realm'
-        rEALM = 'realm'
-        CONNECT_PEER = 'ConnectPeer'
-        CONNECT_TO = 'ConnectTo'
-        OTHER_CONFIGS = 'otherconfigs'
-        CONNECT_LINE = '%s = "hss.host" { %s; %s = "127.0.0.1"; %s = "hss.realm";};\n'
-        self.writeContent('%s = "myIdentity"\n' % IDENTITY, self.mme_fd_config)
-        self.writeContent('%s = "myRealm"\n' % REALM, self.mme_fd_config)
-        self.writeContent(CONNECT_LINE %
-                          (CONNECT_PEER, OTHER_CONFIGS, CONNECT_TO, rEALM),
-                          self.mme_fd_config)
-
-        REALM_VALUE = 'domain.my'
-        MME_HOST, MME_IP = 'mme.%s' % REALM_VALUE, '10.0.0.2/24'
-        HSS_HOST, HSS_IP = 'hss.%s' % REALM_VALUE, '10.0.0.3/24'
-        SPGW_HOST, SPGW_IP = 'spgw.%s' % REALM_VALUE, '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
-
-        configurator = mme_p.MME_Configurator(self.mme_config,
-                                              self.mme_fd_config,
-                                              self.host_file)
-
-        config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
-                                  hss_host = HSS_HOST, hss_ip = HSS_IP,
-                                  spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
-                                  s11_interface = S11_INTERFACE)
-
-        configurator.configure(config)
-
-        mme_fd_config = self.getContent(self.mme_fd_config)
-        self.assertEqual(len(mme_fd_config.splitlines()), 3)
-        self.assertIn('%s = "%s"' % (IDENTITY, MME_HOST), mme_fd_config)
-        self.assertIn('%s = "%s"' % (REALM, REALM_VALUE), mme_fd_config)
-        self.assertIn('%s = "%s"' % (CONNECT_PEER, HSS_HOST), mme_fd_config)
-        self.assertIn(OTHER_CONFIGS, mme_fd_config)
-        self.assertIn('%s = "%s"' % (CONNECT_TO, HSS_IP.split('/')[0]),
-                      mme_fd_config)
-        self.assertIn('%s = "%s"' % (rEALM, REALM_VALUE), mme_fd_config)
-
+        hss_config = self.getContent(self.hss_config)
+        self.assertEqual(len(hss_config.splitlines()), 2)
+        self.assertIn('%s = "%s"' % (HSS_MYSQL_USER, MYSQL_USER), hss_config)
+        self.assertIn('%s = "%s"' % (HSS_MYSQL_PASS, MYSQL_PASS), hss_config)
