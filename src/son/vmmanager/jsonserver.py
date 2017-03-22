@@ -38,7 +38,7 @@ class JsonMsgReader(Protocol):
         self._data = ""
 
     def dataReceived(self, data):
-        self._data += data
+        self._data += data.decode('utf-8')
         self.logger.debug("New data from %s: %s", self.transport.getPeer(), self._data)
         for js in self._get_complete_jsons_():
             for p in self.processors:
