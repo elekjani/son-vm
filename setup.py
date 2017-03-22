@@ -12,7 +12,7 @@ setup(
         zip_safe=False,
         entry_points={
             'console_scripts': [
-                'son-vm-server=son.vmmanager'
+                'son-vm-server=son.vmmanager:main'
             ],
         },
         test_suite='test'
