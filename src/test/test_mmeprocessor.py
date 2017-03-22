@@ -11,13 +11,13 @@ logging.basicConfig(level=logging.DEBUG)
 
 class MME_Processor(unittest.TestCase):
 
-    @patch('son.vmmanager.processors.mme_processor.MME_Runner')
+    @patch('son.vmmanager.processors.utils.Runner')
     @patch('son.vmmanager.processors.mme_processor.MME_Configurator')
     @patch('son.vmmanager.processors.mme_processor.MME_MessageParser')
-    def testProcess(self, MME_MessageParserMock, MME_ConfiguratorMock, MME_RunnerMock):
+    def testProcess(self, MME_MessageParserMock, MME_ConfiguratorMock, RunnerMock):
         MME_MessageParserMock.return_value = Mock(wraps = MME_MessageParserMock)
         MME_ConfiguratorMock.return_value = Mock(wraps = MME_ConfiguratorMock)
-        MME_RunnerMock.return_value = Mock(wraps = MME_RunnerMock)
+        RunnerMock.return_value = Mock(wraps = RunnerMock)
 
         config_dict = {}
 
@@ -30,17 +30,17 @@ class MME_Processor(unittest.TestCase):
         MME_ConfiguratorMock.assert_called_once()
         MME_ConfiguratorMock.configure.assert_called_once()
 
-        MME_RunnerMock.assert_called_once()
+        RunnerMock.assert_called_once()
 
-    @patch('son.vmmanager.processors.mme_processor.MME_Runner')
+    @patch('son.vmmanager.processors.utils.Runner')
     @patch('son.vmmanager.processors.mme_processor.MME_Configurator')
     @patch('son.vmmanager.processors.mme_processor.MME_MessageParser')
     def testProcessIssueCommand(self, MME_MessageParserMock,
-                                MME_ConfiguratorMock, MME_RunnerMock):
+                                MME_ConfiguratorMock, RunnerMock):
         MME_MessageParserMock.return_value = Mock(wraps = MME_MessageParserMock)
         MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'start')
         MME_ConfiguratorMock.return_value = Mock(wraps = MME_ConfiguratorMock)
-        MME_RunnerMock.return_value = Mock(wraps = MME_RunnerMock)
+        RunnerMock.return_value = Mock(wraps = RunnerMock)
 
         config_dict = {}
 
@@ -53,18 +53,18 @@ class MME_Processor(unittest.TestCase):
         MME_ConfiguratorMock.assert_called_once()
         MME_ConfiguratorMock.configure.assert_called_once()
 
-        MME_RunnerMock.assert_called_once()
-        MME_RunnerMock.start.assert_called_once()
+        RunnerMock.assert_called_once()
+        RunnerMock.start.assert_called_once()
 
         MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'stop')
         processor.process(config_dict)
 
-        MME_RunnerMock.stop.assert_called_once()
+        RunnerMock.stop.assert_called_once()
 
         MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'restart')
         processor.process(config_dict)
 
-        MME_RunnerMock.restart.assert_called_once()
+        RunnerMock.restart.assert_called_once()
 
 
 class MME_MsgParser(unittest.TestCase):

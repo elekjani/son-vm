@@ -4,9 +4,6 @@ from son.vmmanager.processors.utils import REGEX_IPV4_MASK
 from son.vmmanager.processors.utils import REGEX_IPV4
 
 import logging
-import tempfile
-import shutil
-import time
 import re
 import os
 
@@ -42,7 +39,7 @@ class MME_Config(utils.HostConfig, utils.CommandConfig):
         super(self.__class__, self).__init__(**kwargs)
 
 
-class MME_Configurator(utils.HostConfigurator):
+class MME_Configurator(utils.ConfiguratorHelpers):
 
     REGEX_S1_IPV4 = '(MME_IPV4_ADDRESS_FOR_S1_MME += )"%s"' % REGEX_IPV4_MASK
     REGEX_S11_INTERFACE = '(MME_INTERFACE_NAME_FOR_S11_MME += )"[a-z0-9]+"'
@@ -54,16 +51,20 @@ class MME_Configurator(utils.HostConfigurator):
     REGEX_CONNECT_TO = r'(ConnectTo = )"%s"' % REGEX_IPV4
     REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
 
-    def __init__(self, config_path, fd_config_path, *args, **kwargs):
+    def __init__(self, config_path, fd_config_path, host_file_path,
+                 cert_exe = None, cert_path = None):
         self.logger = logging.getLogger(MME_Configurator.__name__)
         self._mme_config_path = config_path
         self._mme_fd_config_path = fd_config_path
-        super(self.__class__, self).__init__(*args, **kwargs)
+        self._host_configurator = utils.HostConfigurator(host_file_path)
+        self._cert_configurator = utils.CertificateConfigurator(cert_exe,
+                                                                cert_path)
 
     def configure(self, mme_config):
         self._configure_mme(mme_config)
         self._configure_mme_freediameter(mme_config)
-        super(self.__class__, self).configure(mme_config)
+        self._host_configurator.configure(mme_config)
+        self._cert_configurator.configure(mme_config.mme_host)
 
     def _configure_mme_freediameter(self, mme_config):
         if not os.path.isfile(self._mme_fd_config_path):
@@ -74,7 +75,7 @@ class MME_Configurator(utils.HostConfigurator):
         mme_host = mme_config.mme_host
         hss_host = mme_config.hss_host
         hss_ip = mme_config.hss_ip
-        hss_ip = self._ip(hss_ip)
+        hss_ip = self.ip(hss_ip)
         realm = '.'.join(mme_host.split('.')[1:]) if mme_host is not None else None
 
         new_content = ""
@@ -83,20 +84,20 @@ class MME_Configurator(utils.HostConfigurator):
                 self._current_line = line
 
                 if mme_host is not None:
-                    self._sed_it(self.REGEX_IDENTITY, mme_host)
+                    self.sed_it(self.REGEX_IDENTITY, mme_host)
 
                 if realm is not None:
-                    self._sed_it(self.REGEX_REALM, realm)
+                    self.sed_it(self.REGEX_REALM, realm)
 
                 if hss_host is not None:
-                    self._sed_it(self.REGEX_CONNECT_PEER, hss_host)
+                    self.sed_it(self.REGEX_CONNECT_PEER, hss_host)
 
                 if hss_ip is not None:
-                    self._sed_it(self.REGEX_CONNECT_TO, hss_ip)
+                    self.sed_it(self.REGEX_CONNECT_TO, hss_ip)
 
                 new_content += self._current_line
 
-        self._write_out(new_content, self._mme_fd_config_path)
+        self.write_out(new_content, self._mme_fd_config_path)
 
     def _configure_mme(self, mme_config):
         if not os.path.isfile(self._mme_config_path):
@@ -114,46 +115,18 @@ class MME_Configurator(utils.HostConfigurator):
                 self._current_line  = line
 
                 if s11_intf is not None:
-                    self._sed_it(self.REGEX_S11_INTERFACE, s11_intf)
+                    self.sed_it(self.REGEX_S11_INTERFACE, s11_intf)
 
                 if mme_ip is not None:
-                    self._sed_it(self.REGEX_S11_IPV4, mme_ip)
-                    self._sed_it(self.REGEX_S1_IPV4, mme_ip)
+                    self.sed_it(self.REGEX_S11_IPV4, mme_ip)
+                    self.sed_it(self.REGEX_S1_IPV4, mme_ip)
 
                 if spgw_ip is not None:
-                    self._sed_it(self.REGEX_SGW_IPV4, spgw_ip)
+                    self.sed_it(self.REGEX_SGW_IPV4, spgw_ip)
 
                 new_content += self._current_line
 
-        self._write_out(new_content, self._mme_config_path)
-
-    def _sed_it(self, regex, sub):
-        self._current_line =  re.sub(regex, r'\1"%s"' % sub, self._current_line)
-        return self._current_line
-
-    def _ip(self, masked_ip):
-        return masked_ip.split('/')[0] if masked_ip is not None else None
-    def _write_out(self, content, file_path):
-        os_fd, tmp_file = tempfile.mkstemp()
-        os.close(os_fd)
-
-        with open(tmp_file, 'w') as f:
-            f.write(content)
-
-        backup_path = '%s.%s.back' % (file_path, int(time.time()))
-        shutil.copy(file_path, backup_path)
-        shutil.copy(tmp_file, file_path)
-        shutil.copymode(backup_path, file_path)
-
-        os.remove(tmp_file)
-
-
-class MME_Runner(utils.Runner):
-
-    EXECUTABLE = '~/openair-cn/SCRIPTS/run_mme'
-
-    def __init__(self, executable = EXECUTABLE):
-        super(self.__class__, self).__init__(executable)
+        self.write_out(new_content, self._mme_config_path)
 
 
 class MME_Processor(IJsonProcessor):
@@ -161,17 +134,22 @@ class MME_Processor(IJsonProcessor):
     MME_FREEDIAMETER_CONFIG_PATH = '/usr/local/etc/oai/freeDiameter/mme_fd.conf'
     MME_CONFIG_PATH = '/usr/local/etc/oai/mme.conf'
     HOST_FILE_PATH = '/etc/hosts'
+    MME_CERTIFICATE_CREATOR= '~/openair-cn/SCRIPTS/check_mme_s6a_certificate'
+    MME_CERTIFICATE_PATH = '/usr/local/etc/oai/freeDiameter/'
+    MME_EXECUTABLE = '~/openair-cn/SCRIPTS/run_mme'
 
     def __init__(self, mme_config_path = MME_CONFIG_PATH,
                  mme_freediameter_config_path = MME_CONFIG_PATH,
-                 host_file_path = HOST_FILE_PATH):
+                 host_file_path = HOST_FILE_PATH,
+                 cert_exe = MME_CERTIFICATE_CREATOR,
+                 cert_path = MME_CERTIFICATE_PATH):
         self.logger = logging.getLogger(MME_Processor.__name__)
 
         self._configurator = MME_Configurator(mme_config_path,
                                               mme_freediameter_config_path,
-                                              host_file_path)
-        self._runner = MME_Runner()
-
+                                              host_file_path,
+                                              cert_exe, cert_path)
+        self._runner = utils.Runner(self.MME_EXECUTABLE)
 
     def process(self, json_dict):
         parser = MME_MessageParser(json_dict)

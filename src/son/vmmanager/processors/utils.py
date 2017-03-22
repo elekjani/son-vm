@@ -1,11 +1,37 @@
 import re
 import os
+import time
 import logging
 import subprocess
+import shutil
+import tempfile
 
 REGEX_IPV4_NUMBER = '[0-9]{1,3}'
 REGEX_IPV4 = r'\.'.join([REGEX_IPV4_NUMBER] * 4)
 REGEX_IPV4_MASK = REGEX_IPV4 + '/[0-9]{1,2}'
+
+class ConfiguratorHelpers(object):
+
+    def write_out(self, content, file_path):
+        os_fd, tmp_file = tempfile.mkstemp()
+        os.close(os_fd)
+
+        with open(tmp_file, 'w') as f:
+            f.write(content)
+
+        backup_path = '%s.%s.back' % (file_path, int(time.time()))
+        shutil.copy(file_path, backup_path)
+        shutil.copy(tmp_file, file_path)
+        shutil.copymode(backup_path, file_path)
+
+        os.remove(tmp_file)
+
+    def sed_it(self, regex, sub):
+        self._current_line =  re.sub(regex, r'\1"%s"' % sub, self._current_line)
+        return self._current_line
+
+    def ip(self, masked_ip):
+        return masked_ip.split('/')[0] if masked_ip is not None else None
 
 
 class CommandMessageParser(object):
@@ -119,21 +145,18 @@ class HostConfig(object):
         super(HostConfig, self).__init__(**kwargs)
 
 
-class HostConfigurator(object):
+class HostConfigurator(ConfiguratorHelpers):
 
     def __init__(self, host_file_path):
         self._host_file_path = host_file_path
 
     def configure(self, host_config):
-        self._configure_host_file(host_config)
-
-    def _configure_host_file(self, hss_config):
         if not os.path.isfile(self._host_file_path):
             self.logger.warning('Host file is not found at %s', self._host_file_path)
             return
 
-        mme_host, mme_ip = hss_config.mme_host, self._ip(hss_config.mme_ip)
-        hss_host, hss_ip = hss_config.hss_host, self._ip(hss_config.hss_ip)
+        mme_host, mme_ip = host_config.mme_host, self.ip(host_config.mme_ip)
+        hss_host, hss_ip = host_config.hss_host, self.ip(host_config.hss_ip)
 
         config_mme = False
         if mme_host is not None and mme_ip is not None:
@@ -163,7 +186,38 @@ class HostConfigurator(object):
         if config_hss:
             new_content += '%s %s\n' % (hss_ip, hss_host)
 
-        self._write_out(new_content, self._host_file_path)
+        self.write_out(new_content, self._host_file_path)
+
+
+class CertificateConfigurator(object):
+
+    def __init__(self, cert_exe, certificate_path):
+        self.logger = logging.getLogger(CertificateConfigurator.__name__)
+        self._executable = cert_exe
+        self._certificate_path = certificate_path
+
+    def configure(self, host_name):
+        if self._executable is None or self._certificate_path is None:
+            self.logger.warn('Unable to configure certificates')
+            return
+
+        if not os.path.isfile(self._executable):
+            self.logger.warn('Certificate creator does not exist: %s',
+                             self._executable)
+            return
+
+        if not os.path.isdir(self._certificate_path):
+            self.logger.warn('Certificate path does not exist: %s',
+                             self._certificate_path)
+            return
+
+        if host_name is None:
+            self.logger.warn('Unable to configure certificates.'
+                             'No host is given.')
+            return
+
+        subprocess.check_call([self._executable, self._certificate_path,
+                               host_name])
 
 
 class Runner(object):

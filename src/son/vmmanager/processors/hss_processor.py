@@ -1,11 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor
 from son.vmmanager.processors import utils
 
-import subprocess
 import logging
-import tempfile
-import shutil
-import time
 import re
 import os
 
@@ -48,23 +44,27 @@ class HSS_Config(utils.HostConfig, utils.CommandConfig):
         super(self.__class__, self).__init__(**kwargs)
 
 
-class HSS_Configurator(utils.HostConfigurator):
+class HSS_Configurator(utils.ConfiguratorHelpers):
 
-    REGEX_MYSQL_USER = '@MYSQL_user@'
-    REGEX_MYSQL_PASS = '@MYSQL_pass@'
+    REGEX_MYSQL_USER = '(.*)"@MYSQL_user@"'
+    REGEX_MYSQL_PASS = '(.*)"@MYSQL_pass@"'
 
-    def __init__(self, config_path, *args, **kwargs):
+    def __init__(self, config_path, host_file_path,
+                 cert_exe = None, cert_path = None):
         self.logger = logging.getLogger(HSS_Configurator.__name__)
         self._hss_config_path = config_path
-        super(self.__class__, self).__init__(*args, **kwargs)
+        self._host_configurator = utils.HostConfigurator(host_file_path)
+        self._cert_configurator = utils.CertificateConfigurator(cert_exe,
+                                                                cert_path)
 
     def configure(self, hss_config):
         self._configure_hss(hss_config)
-        super(self.__class__, self).configure(hss_config)
+        self._host_configurator.configure(hss_config)
+        self._cert_configurator.configure(hss_config.hss_host)
 
     def _configure_hss(self, hss_config):
         if not os.path.isfile(self._hss_config_path):
-            self.logger.warning('MME config file is not found at '
+            self.logger.warning('HSS config file is not found at '
                              '%s' % self._hss_config_path)
             return
 
@@ -79,60 +79,40 @@ class HSS_Configurator(utils.HostConfigurator):
             for line in f:
                 self._current_line  = line
 
-                self._sed_it(self.REGEX_MYSQL_USER, user)
-                self._sed_it(self.REGEX_MYSQL_PASS, password)
+                self.sed_it(self.REGEX_MYSQL_USER, user)
+                self.sed_it(self.REGEX_MYSQL_PASS, password)
 
                 new_content += self._current_line
 
-        self._write_out(new_content, self._hss_config_path)
-
-    def _sed_it(self, regex, sub):
-        self._current_line =  re.sub(regex, sub, self._current_line)
-        return self._current_line
-
-    def _ip(self, masked_ip):
-        return masked_ip.split('/')[0] if masked_ip is not None else None
-    def _write_out(self, content, file_path):
-        os_fd, tmp_file = tempfile.mkstemp()
-        os.close(os_fd)
-
-        with open(tmp_file, 'w') as f:
-            f.write(content)
-
-        backup_path = '%s.%s.back' % (file_path, int(time.time()))
-        shutil.copy(file_path, backup_path)
-        shutil.copy(tmp_file, file_path)
-        shutil.copymode(backup_path, file_path)
-
-        os.remove(tmp_file)
-
-
-class HSS_Runner(utils.Runner):
-
-    EXECUTABLE = '~/openair-cn/SCRIPTS/run_hss'
-
-    def __init__(self, executable = EXECUTABLE):
-        super(self.__class__, self).__init__(executable)
+        self.write_out(new_content, self._hss_config_path)
 
 
 class HSS_Processor(IJsonProcessor):
 
     HSS_CONFIG_PATH = '/usr/local/etc/oai/hss.conf'
     HOST_FILE_PATH = '/etc/hosts'
+    HSS_CERTIFICATE_EXECUTABLE = '~/openair-cn/SCRIPTS/check_hss_s6a_certificate'
+    HSS_CERTIFICATE_PATH = '/usr/local/etc/oai/freeDiameter'
+    HSS_EXECUTABLE = '~/openair-cn/SCRIPTS/run_hss'
 
     def __init__(self, hss_config_path = HSS_CONFIG_PATH,
                  hss_freediameter_config_path = HSS_CONFIG_PATH,
+                 hss_certificate_exe = HSS_CERTIFICATE_EXECUTABLE,
+                 hss_certificate_path = HSS_CERTIFICATE_PATH,
                  host_file_path = HOST_FILE_PATH):
         self.logger = logging.getLogger(HSS_Processor.__name__)
 
-        self._configurator = HSS_Configurator(hss_config_path, host_file_path)
-        self._runner = HSS_Runner()
+        self._configurator = HSS_Configurator(config_path = hss_config_path,
+                                              host_file_path = host_file_path,
+                                              cert_exe = hss_certificate_exe,
+                                              cert_path = hss_certificate_path)
+        self._runner = utils.Runner(self.HSS_EXECUTABLE)
 
 
     def process(self, json_dict):
         parser = HSS_MessageParser(json_dict)
         hss_config = parser.parse()
-        self._configurator.configure(hss_config)
+        self._configurator.configure(hss_config = hss_config)
         self._execute_command(hss_config)
 
     def _execute_command(self, hss_config):

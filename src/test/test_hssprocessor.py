@@ -11,13 +11,13 @@ logging.basicConfig(level=logging.DEBUG)
 
 class HSS_Processor(unittest.TestCase):
 
-    @patch('son.vmmanager.processors.hss_processor.HSS_Runner')
+    @patch('son.vmmanager.processors.utils.Runner')
     @patch('son.vmmanager.processors.hss_processor.HSS_Configurator')
     @patch('son.vmmanager.processors.hss_processor.HSS_MessageParser')
-    def testProcess(self, HSS_MessageParserMock, HSS_ConfiguratorMock, HSS_RunnerMock):
+    def testProcess(self, HSS_MessageParserMock, HSS_ConfiguratorMock, RunnerMock):
         HSS_MessageParserMock.return_value = Mock(wraps = HSS_MessageParserMock)
         HSS_ConfiguratorMock.return_value = Mock(wraps = HSS_ConfiguratorMock)
-        HSS_RunnerMock.return_value = Mock(wraps = HSS_RunnerMock)
+        RunnerMock.return_value = Mock(wraps = RunnerMock)
 
         config_dict = {}
 
@@ -30,17 +30,17 @@ class HSS_Processor(unittest.TestCase):
         HSS_ConfiguratorMock.assert_called_once()
         HSS_ConfiguratorMock.configure.assert_called_once()
 
-        HSS_RunnerMock.assert_called_once()
+        RunnerMock.assert_called_once()
 
-    @patch('son.vmmanager.processors.hss_processor.HSS_Runner')
+    @patch('son.vmmanager.processors.utils.Runner')
     @patch('son.vmmanager.processors.hss_processor.HSS_Configurator')
     @patch('son.vmmanager.processors.hss_processor.HSS_MessageParser')
     def testProcessIssueCommand(self, HSS_MessageParserMock,
-                                HSS_ConfiguratorMock, HSS_RunnerMock):
+                                HSS_ConfiguratorMock, RunnerMock):
         HSS_MessageParserMock.return_value = Mock(wraps = HSS_MessageParserMock)
         HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'start')
         HSS_ConfiguratorMock.return_value = Mock(wraps = HSS_ConfiguratorMock)
-        HSS_RunnerMock.return_value = Mock(wraps = HSS_RunnerMock)
+        RunnerMock.return_value = Mock(wraps = RunnerMock)
 
         config_dict = {}
 
@@ -53,18 +53,18 @@ class HSS_Processor(unittest.TestCase):
         HSS_ConfiguratorMock.assert_called_once()
         HSS_ConfiguratorMock.configure.assert_called_once()
 
-        HSS_RunnerMock.assert_called_once()
-        HSS_RunnerMock.start.assert_called_once()
+        RunnerMock.assert_called_once()
+        RunnerMock.start.assert_called_once()
 
         HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'stop')
         processor.process(config_dict)
 
-        HSS_RunnerMock.stop.assert_called_once()
+        RunnerMock.stop.assert_called_once()
 
         HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'restart')
         processor.process(config_dict)
 
-        HSS_RunnerMock.restart.assert_called_once()
+        RunnerMock.restart.assert_called_once()
 
 
 class HSS_MsgParser(unittest.TestCase):
