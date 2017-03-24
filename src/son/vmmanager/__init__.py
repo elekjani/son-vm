@@ -32,7 +32,7 @@ def main(argv = sys.argv[1:]):
         try:
             processorModule = importlib.import_module(module_name)
             processorClass = getattr(processorModule, class_name)
-            factory.addProcessor(processorClass())
+            factory.addProcessor(p, processorClass())
         except ModuleNotFoundError:
             logger.warn('No module named %s has been found', module_name)
         except AttributeError:

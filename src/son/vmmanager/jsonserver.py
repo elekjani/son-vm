@@ -5,30 +5,96 @@ import logging
 import json
 
 class IJsonProcessor(object):
+
+    class Result(object):
+
+        OK = 1
+        FAILED = 2
+        UNKNOWN = 3
+        STATUS_FIELDS = [OK, FAILED, UNKNOWN]
+
+        STATUS = 'status'
+        MESSAGE = 'message'
+
+        def __init__(self, status, message, args = None):
+            if status is None or message is None:
+                raise Exception('Status and message is required'
+                                'to create a result object')
+
+            if status not in self.STATUS_FIELDS:
+                raise Exception('Status must be on of the Result.OK,'
+                                'Result.FAILED, Result.UNKNOWN fields.'
+                                '(actual status: %s)' % status)
+
+            if type(message) is not str:
+                raise Exception('Message must be a string.'
+                                '(actual type: %s)' % type(message))
+
+            if args is not None and type(args) is not dict:
+                raise Exception('Additional argument must be a dict.'
+                                '(actual type: %s)' % type(args))
+
+            self.status = status
+            self.message = message
+            self.args = args
+
+        def json(self):
+            result = { self.STATUS: self.status, self.MESSAGE: self.message }
+            if self.args is not None:
+                result.update(self.args)
+
+            return json.dumps(result)
+
+        @classmethod
+        def parse(cls, jsonString):
+            jsonDict = json.loads(jsonString)
+
+            if cls.STATUS not in jsonDict:
+                raise Exception('Invalid JSON: No %s field', cls.STATUS)
+
+            if cls.MESSAGE not in jsonDict:
+                raise Exception('Invalid JSON: No %s field', cls.MESSAGE)
+
+            status = jsonDict.pop(cls.STATUS)
+
+            if status not in cls.STATUS_FIELDS:
+                raise Exception('Invalid %s: %s', cls.STATUS, status)
+
+            message = jsonDict.pop(cls.MESSAGE)
+
+            if type(message) is not str:
+                raise Exception('Invalid %s: %s', cls.MESSAGE, message)
+
+            if len(jsonDict) > 0:
+                return cls(status, message, jsonDict)
+            else:
+                return cls(status, message)
+
+
     def process(self, json):
         pass
 
 
 class JsonMsgReaderFactory(Factory):
-
     def __init__(self):
         self.logger = logging.getLogger(JsonMsgReader.__name__)
         self.processors = []
 
-    def addProcessor(self, jsonProcessor):
+    def addProcessor(self, processorName, jsonProcessor):
         if not issubclass(type(jsonProcessor), IJsonProcessor):
-            self.logger.error('Unable to add message processor with type: %s', type(jsonProcessor))
+            self.logger.error('Unable to add message processor with type: '
+                              '%s', type(jsonProcessor))
             raise Exception('Invalid processor is given')
 
-        self.processors.append(jsonProcessor)
-        self.logger.info('Added processor: ' + jsonProcessor.__class__.__name__)
+        self.processors.append((processorName, jsonProcessor))
+        self.logger.info('Added processor: %s (%s)', processorName,
+                         jsonProcessor.__class__.__name__)
 
     def buildProtocol(self, addr):
         return JsonMsgReader(self.processors)
 
 
 class JsonMsgReader(Protocol):
-
     def __init__(self, jsonProcessors = []):
         self.logger = logging.getLogger(JsonMsgReader.__name__)
         self.processors = jsonProcessors
@@ -41,9 +107,19 @@ class JsonMsgReader(Protocol):
         self._data += data.decode('utf-8')
         self.logger.debug("New data from %s: %s", self.transport.getPeer(), self._data)
         for js in self._get_complete_jsons_():
-            for p in self.processors:
-                self.logger.debug("Passing JSON %s to precessor %s", js, p.__class__.__name__)
-                p.process(js)
+            results = {}
+            for name, instance in self.processors:
+                self.logger.debug("Passing JSON %s to precessor %s", js, name)
+                result = instance.process(js)
+                if isinstance(result, IJsonProcessor.Result):
+                    results[name] = result.json()
+                else:
+                    r = IJsonProcessor.Result(IJsonProcessor.Result.UNKNOWN,
+                                              'Processor returned with invalid result',
+                                              {'RETURN_TYPE': str(type(result))})
+                    results[name] = r.json()
+
+            self.transport.write(json.dumps(results).encode('utf-8'))
 
     def _get_json_segments_(self, jsonString):
         # Let's hope that there is no '{' or '}' in any string data
