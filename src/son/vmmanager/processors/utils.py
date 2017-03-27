@@ -270,6 +270,7 @@ class Runner(object):
         self._executable = executable
         self._task = None
         self._isShell = start_shell
+        self._std_contents = {1: "", 2: ""}
 
     def start(self):
         if self._task is not None:
@@ -283,7 +284,8 @@ class Runner(object):
                                       shell = self._isShell,
                                       bufsize = 0)
 
-        self._std_contents = {1: "", 2: ""}
+        self._std_contents[1] = ""
+        self._std_contents[2] = ""
         self._stdout_thread = threading.Thread(target=self._getOutput, args=[1])
         self._stderr_thread = threading.Thread(target=self._getOutput, args=[2])
         self._stdout_thread.start()
