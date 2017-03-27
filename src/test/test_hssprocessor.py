@@ -313,3 +313,34 @@ class HSS_Configurator(unittest.TestCase):
         self.assertEqual(len(hss_config.splitlines()), 2)
         self.assertIn('%s = "%s"' % (HSS_MYSQL_USER, MYSQL_USER), hss_config)
         self.assertIn('%s = "%s"' % (HSS_MYSQL_PASS, MYSQL_PASS), hss_config)
+
+    def testEmptyMessage(self):
+        HSS_MYSQL_USER = 'user'
+        HSS_MYSQL_PASS = 'pass'
+        self.writeContent('%s = "@MYSQL_user@"\n' % HSS_MYSQL_USER, self.hss_config)
+        self.writeContent('%s = "@MYSQL_pass@"\n' % HSS_MYSQL_PASS, self.hss_config)
+
+        MME_HOST, MME_IP = 'mme.domain.my', '11.0.0.1'
+        HSS_HOST, HSS_IP = 'hss.domain.my', '12.0.0.1'
+        CUSTOM_H, CUSTOM_IP = 'custom_host', '11.11.11.11'
+        self.writeContent('%s %s\n' % (MME_IP, MME_HOST), self.host_file)
+        self.writeContent('%s %s\n' % (HSS_IP, HSS_HOST), self.host_file)
+        self.writeContent('%s %s\n' % (CUSTOM_IP, CUSTOM_H), self.host_file)
+
+        configurator = hss_p.HSS_Configurator(self.hss_config,
+                                              self.host_file)
+
+        config = hss_p.HSS_Config()
+
+        configurator.configure(config)
+
+        hss_config = self.getContent(self.hss_config)
+        self.assertEqual(len(hss_config.splitlines()), 2)
+        self.assertIn('%s = "%s"' % (HSS_MYSQL_USER, "@MYSQL_user@"), hss_config)
+        self.assertIn('%s = "%s"' % (HSS_MYSQL_PASS, "@MYSQL_pass@"), hss_config)
+
+        host_file_content = self.getContent(self.host_file)
+        self.assertEqual(len(host_file_content.splitlines()), 3)
+        self.assertIn('%s %s' % (MME_IP, MME_HOST), host_file_content)
+        self.assertIn('%s %s' % (HSS_IP, HSS_HOST), host_file_content)
+        self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)

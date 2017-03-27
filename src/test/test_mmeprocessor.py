@@ -358,3 +358,42 @@ class MME_Configurator(unittest.TestCase):
                       mme_fd_config)
         self.assertIn('%s = "%s"' % (rEALM, REALM_VALUE), mme_fd_config)
 
+    def testEmptyMessage(self):
+        MME_INTF_S11 = 'MME_INTERFACE_NAME_FOR_S11_MME'
+        MME_IP_S11 = 'MME_IPV4_ADDRESS_FOR_S11_MME'
+        MME_IP_S1 = 'MME_IPV4_ADDRESS_FOR_S1_MME'
+        SPGW_IP_S11 = 'SGW_IPV4_ADDRESS_FOR_S11'
+        S11_INTERFACE = 'lo'
+        MME_HOST, MME_IP = 'mme.domain.my', '11.0.0.1'
+        HSS_HOST, HSS_IP = 'hss.domain.my', '12.0.0.1'
+        SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
+        CUSTOM_H, CUSTOM_IP = 'custom_host', '11.11.11.11'
+        self.writeContent('%s = "%s"\n' % (MME_INTF_S11, S11_INTERFACE), self.mme_config)
+        self.writeContent('%s = "%s"\n' % (MME_IP_S11, MME_IP), self.mme_config)
+        self.writeContent('%s = "%s"\n' % (MME_IP_S1, MME_IP), self.mme_config)
+        self.writeContent('%s = "%s"\n' % (SPGW_IP_S11, SPGW_IP), self.mme_config)
+
+        self.writeContent('%s %s\n' % (MME_IP, MME_HOST), self.host_file)
+        self.writeContent('%s %s\n' % (HSS_IP, HSS_HOST), self.host_file)
+        self.writeContent('%s %s\n' % (CUSTOM_IP, CUSTOM_H), self.host_file)
+
+        configurator = mme_p.MME_Configurator(self.mme_config,
+                                              self.mme_fd_config,
+                                              self.host_file)
+
+        config = mme_p.MME_Config()
+
+        configurator.configure(config)
+
+        mme_config = self.getContent(self.mme_config)
+        self.assertEqual(len(mme_config.splitlines()), 4)
+        self.assertIn('%s = "%s"' % (MME_INTF_S11, S11_INTERFACE), mme_config)
+        self.assertIn('%s = "%s"' % (MME_IP_S11, MME_IP), mme_config)
+        self.assertIn('%s = "%s"' % (MME_IP_S1, MME_IP), mme_config)
+        self.assertIn('%s = "%s"' % (SPGW_IP_S11, SPGW_IP), mme_config)
+
+        host_file_content = self.getContent(self.host_file)
+        self.assertEqual(len(host_file_content.splitlines()), 3)
+        self.assertIn('%s %s' % (MME_IP, MME_HOST), host_file_content)
+        self.assertIn('%s %s' % (HSS_IP, HSS_HOST), host_file_content)
+        self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)

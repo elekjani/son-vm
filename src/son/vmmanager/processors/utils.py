@@ -170,11 +170,11 @@ class HostConfigurator(ConfiguratorHelpers):
         with open(self._host_file_path, 'r') as f:
             for line in f:
                 self._current_line = line
-                if config_mme and mme_host in line or mme_ip in line:
+                if config_mme and (mme_host in line or mme_ip in line):
                     self._current_line = '%s %s\n' % (mme_ip, mme_host)
                     config_mme = False
 
-                if config_hss and hss_host in line or hss_ip in line:
+                if config_hss and (hss_host in line or hss_ip in line):
                     self._current_line = '%s %s\n' % (hss_ip, hss_host)
                     config_hss = False
 
