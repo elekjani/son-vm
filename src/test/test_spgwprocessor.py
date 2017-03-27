@@ -70,6 +70,13 @@ class SPGW_Processor(unittest.TestCase):
 
         RunnerMock.restart.assert_called_once()
 
+        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(
+            command = CommandConfig.STATUS)
+        processor.process(config_dict)
+
+        self.assertEqual(RunnerMock.getOutput.call_count, 2)
+
+
 
 class SPGW_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):

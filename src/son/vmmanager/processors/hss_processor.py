@@ -147,11 +147,11 @@ class HSS_Processor(P):
         elif hss_config.command == utils.CommandConfig.RESTART:
             return self._runner.restart()
         elif hss_config.command == utils.CommandConfig.STATUS:
-            status = 'Running' if self._runner.isRunning else 'Stopped'
+            status = 'Running' if self._runner.isRunning() else 'Stopped'
             stdout = self._runner.getOutput()
             stderr = self._runner.getOutput(stderr=True)
-            return P.Result.ok('Status', status = status,
-                               stderr = stderr, stdout = stdoute)
+            return P.Result.ok('Status', task_status = status,
+                               stderr = stderr, stdout = stdout)
         else:
             return P.Result.fail('Invalid command is given %s',
                                  hss_config.command)

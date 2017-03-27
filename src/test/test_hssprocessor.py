@@ -71,6 +71,13 @@ class HSS_Processor(unittest.TestCase):
 
         RunnerMock.restart.assert_called_once()
 
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(
+            command = CommandConfig.STATUS)
+        processor.process(config_dict)
+
+        self.assertEqual(RunnerMock.getOutput.call_count, 2)
+
+
 
 class HSS_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):

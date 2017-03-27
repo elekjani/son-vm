@@ -70,6 +70,13 @@ class MME_Processor(unittest.TestCase):
 
         RunnerMock.restart.assert_called_once()
 
+        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(
+            command = CommandConfig.STATUS)
+        processor.process(config_dict)
+
+        self.assertEqual(RunnerMock.getOutput.call_count, 2)
+
+
 
 class MME_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
