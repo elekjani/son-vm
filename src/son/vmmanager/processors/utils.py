@@ -193,8 +193,8 @@ class CertificateConfigurator(object):
 
     def __init__(self, cert_exe, certificate_path):
         self.logger = logging.getLogger(CertificateConfigurator.__name__)
-        self._executable = cert_exe
-        self._certificate_path = certificate_path
+        self._executable = os.path.expanduser(cert_exe)
+        self._certificate_path = os.path.expanduser(certificate_path)
 
     def configure(self, host_name):
         if self._executable is None or self._certificate_path is None:
