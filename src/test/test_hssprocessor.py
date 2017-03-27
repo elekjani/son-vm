@@ -1,4 +1,6 @@
 import son.vmmanager.processors.hss_processor as hss_p
+from son.vmmanager.processors.utils import CommandConfig
+from son.vmmanager.jsonserver import IJsonProcessor as P
 
 from unittest.mock import patch
 from unittest.mock import Mock
@@ -38,7 +40,8 @@ class HSS_Processor(unittest.TestCase):
     def testProcessIssueCommand(self, HSS_MessageParserMock,
                                 HSS_ConfiguratorMock, RunnerMock):
         HSS_MessageParserMock.return_value = Mock(wraps = HSS_MessageParserMock)
-        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'start')
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(
+            command = CommandConfig.START)
         HSS_ConfiguratorMock.return_value = Mock(wraps = HSS_ConfiguratorMock)
         RunnerMock.return_value = Mock(wraps = RunnerMock)
 
@@ -56,12 +59,14 @@ class HSS_Processor(unittest.TestCase):
         RunnerMock.assert_called_once()
         RunnerMock.start.assert_called_once()
 
-        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'stop')
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(
+            command = CommandConfig.STOP)
         processor.process(config_dict)
 
         RunnerMock.stop.assert_called_once()
 
-        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(command = 'restart')
+        HSS_MessageParserMock.parse.return_value = hss_p.HSS_Config(
+            command = CommandConfig.RESTART)
         processor.process(config_dict)
 
         RunnerMock.restart.assert_called_once()
@@ -100,7 +105,7 @@ class HSS_MsgParser(unittest.TestCase):
         self.assertEqual(config.spgw_ip, SPGW_IP)
         self.assertEqual(config.mysql_user, MYSQL_USER)
         self.assertEqual(config.mysql_pass, MYSQL_PASS)
-        self.assertEqual(config.command, COMMAND)
+        self.assertEqual(config.command, CommandConfig.START)
 
     def testPartlyHostConfig(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
@@ -176,7 +181,7 @@ class HSS_MsgParser(unittest.TestCase):
         self.assertEqual(config.spgw_ip, SPGW_IP)
         self.assertEqual(config.mysql_user, MYSQL_USER)
         self.assertEqual(config.mysql_pass, MYSQL_PASS)
-        self.assertEqual(config.command, COMMAND)
+        self.assertEqual(config.command, CommandConfig.START)
 
     def testInvlidIP(self):
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.2'
@@ -253,13 +258,15 @@ class HSS_Configurator(unittest.TestCase):
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
-        configurator.configure(config)
+        result = configurator.configure(config)
 
         host_file_content = self.getContent(self.host_file)
 
         self.assertEqual(len(host_file_content.splitlines()), 2)
         self.assertIn('%s %s' % (self.ip(MME_IP), MME_HOST), host_file_content)
         self.assertIn('%s %s' % (self.ip(HSS_IP), HSS_HOST), host_file_content)
+
+        self.assertEqual(result.status, P.Result.WARNING)
 
     def testUpdateHostFile(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
@@ -278,14 +285,15 @@ class HSS_Configurator(unittest.TestCase):
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
-        configurator.configure(config)
+        result = configurator.configure(config)
 
         host_file_content = self.getContent(self.host_file)
-
         self.assertEqual(len(host_file_content.splitlines()), 3)
         self.assertIn('%s %s' % (self.ip(MME_IP), MME_HOST), host_file_content)
         self.assertIn('%s %s' % (self.ip(HSS_IP), HSS_HOST), host_file_content)
         self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)
+
+        self.assertEqual(result.status, P.Result.WARNING)
 
     def testUpdateHSSConfig(self):
         HSS_MYSQL_USER = 'user'
@@ -307,12 +315,14 @@ class HSS_Configurator(unittest.TestCase):
                                   mysql_user = MYSQL_USER,
                                   mysql_pass = MYSQL_PASS)
 
-        configurator.configure(config)
+        result = configurator.configure(config)
 
         hss_config = self.getContent(self.hss_config)
         self.assertEqual(len(hss_config.splitlines()), 2)
         self.assertIn('%s = "%s"' % (HSS_MYSQL_USER, MYSQL_USER), hss_config)
         self.assertIn('%s = "%s"' % (HSS_MYSQL_PASS, MYSQL_PASS), hss_config)
+
+        self.assertEqual(result.status, P.Result.WARNING)
 
     def testEmptyMessage(self):
         HSS_MYSQL_USER = 'user'
@@ -332,7 +342,7 @@ class HSS_Configurator(unittest.TestCase):
 
         config = hss_p.HSS_Config()
 
-        configurator.configure(config)
+        result = configurator.configure(config)
 
         hss_config = self.getContent(self.hss_config)
         self.assertEqual(len(hss_config.splitlines()), 2)
@@ -344,3 +354,5 @@ class HSS_Configurator(unittest.TestCase):
         self.assertIn('%s %s' % (MME_IP, MME_HOST), host_file_content)
         self.assertIn('%s %s' % (HSS_IP, HSS_HOST), host_file_content)
         self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)
+
+        self.assertEqual(result.status, P.Result.WARNING)

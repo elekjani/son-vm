@@ -1,4 +1,5 @@
 import son.vmmanager.processors.mme_processor as mme_p
+from son.vmmanager.processors.utils import CommandConfig
 
 from unittest.mock import patch
 from unittest.mock import Mock
@@ -38,7 +39,8 @@ class MME_Processor(unittest.TestCase):
     def testProcessIssueCommand(self, MME_MessageParserMock,
                                 MME_ConfiguratorMock, RunnerMock):
         MME_MessageParserMock.return_value = Mock(wraps = MME_MessageParserMock)
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'start')
+        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(
+            command = CommandConfig.START)
         MME_ConfiguratorMock.return_value = Mock(wraps = MME_ConfiguratorMock)
         RunnerMock.return_value = Mock(wraps = RunnerMock)
 
@@ -56,12 +58,14 @@ class MME_Processor(unittest.TestCase):
         RunnerMock.assert_called_once()
         RunnerMock.start.assert_called_once()
 
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'stop')
+        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(
+            command = CommandConfig.STOP)
         processor.process(config_dict)
 
         RunnerMock.stop.assert_called_once()
 
-        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(command = 'restart')
+        MME_MessageParserMock.parse.return_value = mme_p.MME_Config(
+            command = CommandConfig.RESTART)
         processor.process(config_dict)
 
         RunnerMock.restart.assert_called_once()
@@ -96,7 +100,7 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
         self.assertEqual(config.s11_interface, S11_INTERFACE)
-        self.assertEqual(config.command, COMMAND)
+        self.assertEqual(config.command, CommandConfig.START)
 
     def testPartlyHostConfig(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
@@ -168,7 +172,7 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
         self.assertEqual(config.s11_interface, S11_INTERFACE)
-        self.assertEqual(config.command, COMMAND)
+        self.assertEqual(config.command, CommandConfig.START)
 
     def testInvlidIP(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2'

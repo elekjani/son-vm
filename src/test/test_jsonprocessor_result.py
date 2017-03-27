@@ -41,7 +41,6 @@ class ProcessorResult(unittest.TestCase):
         self.assertRaises(Exception, P.Result.parse, '{"status": -1}')
         self.assertRaises(Exception, P.Result.parse, '{"message": 123}')
 
-
     def testJsonDumping(self):
         FINE = 'fine'
         r = P.Result(P.Result.OK, FINE)

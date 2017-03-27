@@ -1,4 +1,4 @@
-from son.vmmanager.jsonserver import IJsonProcessor
+from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 from son.vmmanager.processors.utils import REGEX_IPV4_MASK
 from son.vmmanager.processors.utils import REGEX_IPV4
@@ -53,30 +53,51 @@ class MME_Configurator(utils.ConfiguratorHelpers):
 
     def __init__(self, config_path, fd_config_path, host_file_path,
                  cert_exe = None, cert_path = None):
-        self.logger = logging.getLogger(MME_Configurator.__name__)
         self._mme_config_path = config_path
         self._mme_fd_config_path = fd_config_path
         self._host_configurator = utils.HostConfigurator(host_file_path)
         self._cert_configurator = utils.CertificateConfigurator(cert_exe,
                                                                 cert_path)
+        super(MME_Configurator, self).__init__()
 
     def configure(self, mme_config):
-        self._configure_mme(mme_config)
-        self._configure_mme_freediameter(mme_config)
-        self._host_configurator.configure(mme_config)
-        self._cert_configurator.configure(mme_config.mme_host)
+        mme_result = self._configure_mme(mme_config)
+        mme_fd_result = self._configure_mme_freediameter(mme_config)
+        host_result = self._host_configurator.configure(mme_config)
+        cert_result = self._cert_configurator.configure(mme_config.mme_host)
+
+        results = [mme_result, mme_fd_result, host_result, cert_result]
+
+        if P.Result.FAILED in [r.status for r in results]:
+            return self.fail('MME configuration failed',
+                                 mme=mme_result.message,
+                                 mme_fd=mme_fd_result.message,
+                                 host_file=host_result.message,
+                                 cert=cert_result.message)
+
+        if P.Result.WARNING in [r.status for r in results]:
+            return self.warn('MME configuration was not complete',
+                                 mme=mme_result.message,
+                                 mme_fd=mme_fd_result.message,
+                                 host_file=host_result.message,
+                                 cert=cert_result.message)
+
+        return self.ok('MME is fully configured')
 
     def _configure_mme_freediameter(self, mme_config):
         if not os.path.isfile(self._mme_fd_config_path):
-            self.logger.warning('MME freediameter config file is not found at '
-                             '%s' % self._mme_fd_config_path)
-            return
+            return self.fail('MME freediameter config file is not found at '
+                             '%s', self._mme_fd_config_path)
 
         mme_host = mme_config.mme_host
         hss_host = mme_config.hss_host
         hss_ip = mme_config.hss_ip
         hss_ip = self.ip(hss_ip)
         realm = '.'.join(mme_host.split('.')[1:]) if mme_host is not None else None
+
+        if mme_host is None and hss_host is None \
+                and hss_ip is None and realm is None:
+            return self.warn('No MME freediameter configuration is privded')
 
         new_content = ""
         with open(self._mme_fd_config_path) as f:
@@ -99,15 +120,19 @@ class MME_Configurator(utils.ConfiguratorHelpers):
 
         self.write_out(new_content, self._mme_fd_config_path)
 
+        return self.ok('MME freediameter is configured')
+
     def _configure_mme(self, mme_config):
         if not os.path.isfile(self._mme_config_path):
-            self.logger.warning('MME config file is not found at '
-                             '%s' % self._mme_config_path)
-            return
+            return self.fail('MME config file is not found at %s',
+                             self._mme_config_path)
 
         s11_intf = mme_config.s11_interface
         mme_ip = mme_config.mme_ip
         spgw_ip = mme_config.spgw_ip
+
+        if s11_intf is None and mme_ip is None and spgw_ip is None:
+            return self.fail('No MME configuration is provided')
 
         new_content = ""
         with open(self._mme_config_path) as f:
@@ -128,8 +153,10 @@ class MME_Configurator(utils.ConfiguratorHelpers):
 
         self.write_out(new_content, self._mme_config_path)
 
+        return self.ok('MME is configured')
 
-class MME_Processor(IJsonProcessor):
+
+class MME_Processor(P):
 
     MME_FREEDIAMETER_CONFIG_PATH = '/usr/local/etc/oai/freeDiameter/mme_fd.conf'
     MME_CONFIG_PATH = '/usr/local/etc/oai/mme.conf'
@@ -154,14 +181,28 @@ class MME_Processor(IJsonProcessor):
     def process(self, json_dict):
         parser = MME_MessageParser(json_dict)
         mme_config = parser.parse()
-        self._configurator.configure(mme_config)
-        self._execute_command(mme_config)
+
+        config_result = self._configurator.configure(mme_config)
+        if config_result.status == P.Result.FAILED:
+            return P.Result.fail('MME configuration is failed. '
+                                 'it will be not executed.',
+                                 **config_result.args)
+
+        return self._execute_command(mme_config)
 
     def _execute_command(self, mme_config):
-        if mme_config.command == 'start':
-            self._runner.start()
-        elif mme_config.command == 'stop':
-            self._runner.stop()
-        elif mme_config.command == 'restart':
-            self._runner.restart()
+        if mme_config.command == utils.CommandConfig.START:
+            return self._runner.start()
+        elif mme_config.command == utils.CommandConfig.STOP:
+            return self._runner.stop()
+        elif mme_config.command == utils.CommandConfig.RESTART:
+            return self._runner.restart()
+        elif mme_config.command == utils.CommandConfig.STATUS:
+            status = 'Running' if self._runner.isRunning else 'Stopped'
+            stdout = self._runner.getOutput()
+            stderr = self._runner.getOutput(stderr=True)
+            return P.Result.ok('Status', status = status,
+                               stderr = stderr, stdout = stdoute)
+        else:
+            return P.Result.fail('Invalid command is given')
 

@@ -11,7 +11,8 @@ class IJsonProcessor(object):
         OK = 1
         FAILED = 2
         UNKNOWN = 3
-        STATUS_FIELDS = [OK, FAILED, UNKNOWN]
+        WARNING = 4
+        STATUS_FIELDS = [OK, FAILED, UNKNOWN, WARNING]
 
         STATUS = 'status'
         MESSAGE = 'message'
@@ -69,6 +70,18 @@ class IJsonProcessor(object):
                 return cls(status, message, jsonDict)
             else:
                 return cls(status, message)
+
+        @classmethod
+        def fail(cls, message, *args, **kwords):
+            return cls(cls.FAILED, message % args, kwords)
+
+        @classmethod
+        def ok(cls, message, *args, **kwords):
+            return cls(cls.OK, message % args, kwords)
+
+        @classmethod
+        def warn(cls, message, *args, **kwords):
+            return cls(cls.WARNING, message % args, kwords)
 
 
     def process(self, json):

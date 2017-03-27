@@ -1,4 +1,5 @@
 import son.vmmanager.processors.spgw_processor as spgw_p
+from son.vmmanager.processors.utils import CommandConfig
 
 from unittest.mock import patch
 from unittest.mock import Mock
@@ -38,7 +39,8 @@ class SPGW_Processor(unittest.TestCase):
     def testProcessIssueCommand(self, SPGW_MessageParserMock,
                                 SPGW_ConfiguratorMock, RunnerMock):
         SPGW_MessageParserMock.return_value = Mock(wraps = SPGW_MessageParserMock)
-        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(command = 'start')
+        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(
+            command = CommandConfig.START)
         SPGW_ConfiguratorMock.return_value = Mock(wraps = SPGW_ConfiguratorMock)
         RunnerMock.return_value = Mock(wraps = RunnerMock)
 
@@ -56,12 +58,14 @@ class SPGW_Processor(unittest.TestCase):
         RunnerMock.assert_called_once()
         RunnerMock.start.assert_called_once()
 
-        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(command = 'stop')
+        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(
+            command = CommandConfig.STOP)
         processor.process(config_dict)
 
         RunnerMock.stop.assert_called_once()
 
-        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(command = 'restart')
+        SPGW_MessageParserMock.parse.return_value = spgw_p.SPGW_Config(
+            command = CommandConfig.RESTART)
         processor.process(config_dict)
 
         RunnerMock.restart.assert_called_once()
@@ -90,7 +94,7 @@ class SPGW_MsgParser(unittest.TestCase):
         self.assertEqual(config.s11_ip, CONF_S11_IP)
         self.assertEqual(config.sgi_interface, CONF_SGI_INTERFACE)
         self.assertEqual(config.s1u_ip, CONF_S1U_IP)
-        self.assertEqual(config.command, COMMAND)
+        self.assertEqual(config.command, CommandConfig.START)
 
     def testInvalidCommand(self):
 

@@ -1,4 +1,4 @@
-from son.vmmanager.jsonserver import IJsonProcessor
+from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 
 import logging
@@ -51,28 +51,44 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
 
     def __init__(self, config_path, host_file_path,
                  cert_exe = None, cert_path = None):
-        self.logger = logging.getLogger(HSS_Configurator.__name__)
         self._hss_config_path = config_path
         self._host_configurator = utils.HostConfigurator(host_file_path)
         self._cert_configurator = utils.CertificateConfigurator(cert_exe,
                                                                 cert_path)
+        super(HSS_Configurator, self).__init__()
 
     def configure(self, hss_config):
-        self._configure_hss(hss_config)
-        self._host_configurator.configure(hss_config)
-        self._cert_configurator.configure(hss_config.hss_host)
+        hss_result = self._configure_hss(hss_config)
+        host_result = self._host_configurator.configure(hss_config)
+        cert_result = self._cert_configurator.configure(hss_config.hss_host)
+
+        results = [hss_result, host_result, cert_result]
+
+        if P.Result.FAILED in [r.status for r in results]:
+            return self.fail('HSS configuration failed',
+                                 hss=hss_result.message,
+                                 host_file=host_result.message,
+                                 cert=cert_result.message)
+
+        if P.Result.WARNING in [r.status for r in results]:
+            return self.warn('HSS configuration was not complete',
+                                 hss=hss_result.message,
+                                 host_file=host_result.message,
+                                 cert=cert_result.message)
+
+        return self.ok('HSS is fully configured')
 
     def _configure_hss(self, hss_config):
         if not os.path.isfile(self._hss_config_path):
-            self.logger.warning('HSS config file is not found at '
-                             '%s' % self._hss_config_path)
-            return
+            return self.fail('HSS config file is not found at %s',
+                             self._hss_config_path)
 
         user = hss_config.mysql_user
         password = hss_config.mysql_pass
 
         if user is None or password is None:
-            return
+            return self.warn('Unable to configure HSS '
+                             'no MySQL user and password provided')
 
         new_content = ""
         with open(self._hss_config_path) as f:
@@ -86,8 +102,10 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
 
         self.write_out(new_content, self._hss_config_path)
 
+        return self.ok('HSS is configured')
 
-class HSS_Processor(IJsonProcessor):
+
+class HSS_Processor(P):
 
     HSS_CONFIG_PATH = '/usr/local/etc/oai/hss.conf'
     HOST_FILE_PATH = '/etc/hosts'
@@ -112,14 +130,29 @@ class HSS_Processor(IJsonProcessor):
     def process(self, json_dict):
         parser = HSS_MessageParser(json_dict)
         hss_config = parser.parse()
-        self._configurator.configure(hss_config = hss_config)
-        self._execute_command(hss_config)
+
+        config_result = self._configurator.configure(hss_config = hss_config)
+        if config_result.status == P.Result.FAILED:
+            return P.Result.fail('HSS configuration is failed, '
+                                 'it will be not executed',
+                                 **config_result.args)
+
+        return self._execute_command(hss_config)
 
     def _execute_command(self, hss_config):
-        if hss_config.command == 'start':
-            self._runner.start()
-        elif hss_config.command == 'stop':
-            self._runner.stop()
-        elif hss_config.command == 'restart':
-            self._runner.restart()
+        if hss_config.command == utils.CommandConfig.START:
+            return self._runner.start()
+        elif hss_config.command == utils.CommandConfig.STOP:
+            return self._runner.stop()
+        elif hss_config.command == utils.CommandConfig.RESTART:
+            return self._runner.restart()
+        elif hss_config.command == utils.CommandConfig.STATUS:
+            status = 'Running' if self._runner.isRunning else 'Stopped'
+            stdout = self._runner.getOutput()
+            stderr = self._runner.getOutput(stderr=True)
+            return P.Result.ok('Status', status = status,
+                               stderr = stderr, stdout = stdoute)
+        else:
+            return P.Result.fail('Invalid command is given %s',
+                                 hss_config.command)
 

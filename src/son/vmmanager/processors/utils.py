@@ -1,16 +1,22 @@
+from son.vmmanager.jsonserver import IJsonProcessor as P
 import re
 import os
 import time
 import logging
+import sys
 import subprocess
 import shutil
 import tempfile
+import threading
 
 REGEX_IPV4_NUMBER = '[0-9]{1,3}'
 REGEX_IPV4 = r'\.'.join([REGEX_IPV4_NUMBER] * 4)
 REGEX_IPV4_MASK = REGEX_IPV4 + '/[0-9]{1,2}'
 
 class ConfiguratorHelpers(object):
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def write_out(self, content, file_path):
         os_fd, tmp_file = tempfile.mkstemp()
@@ -33,6 +39,30 @@ class ConfiguratorHelpers(object):
     def ip(self, masked_ip):
         return masked_ip.split('/')[0] if masked_ip is not None else None
 
+    def fail(self, message, *args, **kwords):
+        self.logger.error(message, *args)
+        return P.Result.fail(message, *args, **kwords)
+
+    def ok(self, message, *args, **kwords):
+        self.logger.info(message, *args)
+        return P.Result.ok(message, *args, **kwords)
+
+    def warn(self, message, *args, **kwords):
+        self.logger.warning(message, *args)
+        return P.Result.warn(message, *args, **kwords)
+
+
+class CommandConfig(object):
+
+    START = 1
+    STOP = 2
+    RESTART = 3
+    STATUS = 4
+
+    def __init__(self, command = None, **kwargs):
+        self.command = command
+        super(CommandConfig, self).__init__(**kwargs)
+
 
 class CommandMessageParser(object):
 
@@ -40,7 +70,13 @@ class CommandMessageParser(object):
     MSG_COMMAND_START = 'start'
     MSG_COMMAND_STOP = 'stop'
     MSG_COMMAND_RESTART = 'restart'
-    MSG_MESSAGES = [MSG_COMMAND_START, MSG_COMMAND_STOP, MSG_COMMAND_RESTART]
+    MSG_COMMAND_STATUS = 'status'
+    MSG_COMMANDS = {
+        MSG_COMMAND_START: CommandConfig.START,
+        MSG_COMMAND_STOP: CommandConfig.STOP,
+        MSG_COMMAND_RESTART: CommandConfig.RESTART,
+        MSG_COMMAND_STATUS: CommandConfig.STATUS
+    }
 
     def __init__(self, json_dict = None):
         self.logger = logging.getLogger(CommandMessageParser.__name__)
@@ -48,26 +84,19 @@ class CommandMessageParser(object):
 
     def parse(self, command_config = None):
         if command_config is None:
-            cc = CommandConfg()
+            cc = CommandConfig()
         else:
             cc = command_config
 
         if self.MSG_COMMAND in self.msg_dict:
             cmd = self.msg_dict[self.MSG_COMMAND]
-            if cmd not in self.MSG_MESSAGES:
+            if cmd not in self.MSG_COMMANDS.keys():
                 self.logger.warning('Got invalid command: %s', cmd)
             else:
-                cc.command = cmd
+                cc.command = self.MSG_COMMANDS[cmd]
             self.logger.info('Got command: %s' % cc.command)
 
         return cc
-
-
-class CommandConfig(object):
-
-    def __init__(self, command = None, **kwargs):
-        self.command = command
-        super(CommandConfig, self).__init__(**kwargs)
 
 
 class HostMessageParser(object):
@@ -149,11 +178,12 @@ class HostConfigurator(ConfiguratorHelpers):
 
     def __init__(self, host_file_path):
         self._host_file_path = host_file_path
+        super(HostConfigurator, self).__init__()
 
     def configure(self, host_config):
         if not os.path.isfile(self._host_file_path):
-            self.logger.warning('Host file is not found at %s', self._host_file_path)
-            return
+            return self.fail('Host file is not found at %s',
+                             self._host_file_path)
 
         mme_host, mme_ip = host_config.mme_host, self.ip(host_config.mme_ip)
         hss_host, hss_ip = host_config.hss_host, self.ip(host_config.hss_ip)
@@ -165,6 +195,9 @@ class HostConfigurator(ConfiguratorHelpers):
         config_hss = False
         if hss_host is not None and hss_ip is not None:
             config_hss = True
+
+        if not config_mme and not config_hss:
+            return self.warn('No host name and IP given for HSS amd MME')
 
         new_content = ""
         with open(self._host_file_path, 'r') as f:
@@ -188,66 +221,105 @@ class HostConfigurator(ConfiguratorHelpers):
 
         self.write_out(new_content, self._host_file_path)
 
+        return self.ok('Host file is configured')
 
-class CertificateConfigurator(object):
+
+class CertificateConfigurator(ConfiguratorHelpers):
 
     def __init__(self, cert_exe, certificate_path):
         self.logger = logging.getLogger(CertificateConfigurator.__name__)
-        self._executable = os.path.expanduser(cert_exe)
-        self._certificate_path = os.path.expanduser(certificate_path)
+
+        if cert_exe is not None:
+            self._executable = os.path.expanduser(cert_exe)
+        else:
+            self._executable = None
+
+        if certificate_path is not None:
+            self._certificate_path = os.path.expanduser(certificate_path) if cert_exe is not None else None
+        else:
+            self._certificate_path = None
+
+        super(CertificateConfigurator, self).__init__()
 
     def configure(self, host_name):
         if self._executable is None or self._certificate_path is None:
-            self.logger.warn('Unable to configure certificates')
-            return
+            return self.warn('No executalbe nor certificate path is given.')
 
         if not os.path.isfile(self._executable):
-            self.logger.warn('Certificate creator does not exist: %s',
+            return self.fail('Certificate creator does not exist: %s',
                              self._executable)
-            return
 
         if not os.path.isdir(self._certificate_path):
-            self.logger.warn('Certificate path does not exist: %s',
+            return self.fail('Certificate path does not exist: %s',
                              self._certificate_path)
-            return
 
         if host_name is None:
-            self.logger.warn('Unable to configure certificates.'
+            return self.warn('Unable to configure certificates.'
                              'No host is given.')
-            return
 
         subprocess.check_call([self._executable, self._certificate_path,
                                host_name])
 
+        return self.ok('Certificates are configured')
+
 
 class Runner(object):
 
-    def __init__(self, executable):
+    def __init__(self, executable, start_shell=False):
         self.logger = logging.getLogger(Runner.__name__)
         self._executable = executable
         self._task = None
+        self._isShell = start_shell
 
     def start(self):
         if self._task is not None:
-            self.logger.warn('Unable to start task MME,'
-                             ' it\'s already started')
-            return
+            return P.fail('Unable to start task %s, it\'s already started',
+                          self._executable)
 
         self._task = subprocess.Popen(self._executable,
                                       stdin = subprocess.PIPE,
                                       stdout = subprocess.PIPE,
-                                      stderr = subprocess.STDOUT,
-                                      bufsize = 4096,
-                                      shell = True)
+                                      stderr = subprocess.PIPE,
+                                      shell = self._isShell,
+                                      bufsize = 0)
+
+        self._std_contents = {1: "", 2: ""}
+        self._stdout_thread = threading.Thread(target=self._getOutput, args=[1])
+        self._stderr_thread = threading.Thread(target=self._getOutput, args=[2])
+        self._stdout_thread.start()
+        self._stderr_thread.start()
+
+        return P.Result.ok('Task %s is started', self._executable)
+
+    def _getOutput(self, std):
+        if std == 1:
+            for line in self._task.stdout:
+                self._std_contents[1] += line.decode()
+        elif std == 2:
+            for line in self._task.stderr:
+                self._std_contents[2] += line.decode()
 
     def stop(self):
         if self._task is None:
-            self.logger.warn('Unable to stop task MME,'
-                             ' it\'s not started')
-            return
+            return P.warn('Unable to stop task %s, it\'s not started',
+                          self._executable)
 
-        self._task.kill()
+        if self.isRunning():
+            if 'win' in sys.platform:
+                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self._task.pid)])
+            elif 'linux' in sys.platform:
+                subprocess.call(['kill', '-9', str(self._task.pid)])
+            else:
+                self._task.kill()
+        self._task.stdin.close()
+        self._task.stdout.close()
+        self._task.stderr.close()
+        self._task.wait()
         self._task = None
+        self._stderr_thread.join()
+        self._stdout_thread.join()
+
+        return P.Result.ok('Task %s is stopped', self._executable)
 
     def restart(self):
         if self._task is None:
@@ -256,14 +328,16 @@ class Runner(object):
             self.stop()
             self.start()
 
-    def getOutput(self):
-        content = ""
-        for line in self._task.stdout:
-            content += line.decode().replace('\n', '').replace('\r', '')
-
-        return content
+    def getOutput(self, stderr=False):
+        if stderr:
+            return self._std_contents[2]
+        else:
+            return self._std_contents[1]
 
     def isRunning(self):
+        if self._task is None:
+            return False
+
         returncode = self._task.poll()
         if returncode is None:
             return True

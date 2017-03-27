@@ -9,13 +9,12 @@ class Runner(unittest.TestCase):
         self.logger = logging.getLogger('test.%s' % Runner.__name__)
 
     def tearDown(self):
-        self.task.stop()
+        if self.task.isRunning():
+            self.task.stop()
 
     def testStart(self):
-        self.task = utils.Runner('echo Test text')
+        self.task = utils.Runner('echo Test text', True)
         self.task.start()
-        self.assertEqual(self.task.getOutput(), 'Test text')
-        self.assertEqual(self.task.isRunning(), True)
-
-
-
+        while self.task.isRunning(): pass
+        self.task.stop()
+        self.assertIn('Test text', self.task.getOutput())

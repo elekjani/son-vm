@@ -1,4 +1,4 @@
-from son.vmmanager.jsonserver import IJsonProcessor
+from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 
 import logging
@@ -64,17 +64,20 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
     REGEX_S1U_IP = '(SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP += )"%s"' % utils.REGEX_IPV4_MASK
 
     def __init__(self, config_path):
-        self.logger = logging.getLogger(SPGW_Configurator.__name__)
         self._spgw_config_path = config_path
+        super(SPGW_Configurator, self).__init__()
 
     def configure(self, spgw_config):
         if not os.path.isfile(self._spgw_config_path):
-            self.logger.warning('SPGW config file is not found at '
-                             '%s' % self._spgw_config_path)
-            return
+            return self.fail('SPGW config file is not found at %s',
+                             self._spgw_config_path)
 
         s11_intf, s11_ip = spgw_config.s11_interface, spgw_config.s11_ip
         sgi_intf, s1u_ip = spgw_config.sgi_interface, spgw_config.s1u_ip
+
+        if s11_intf is None and s11_ip is None \
+                and sgi_int is None and s1u_ip is None:
+            return self.warn('No SPGW configuration is privded')
 
         new_content = ""
         with open(self._spgw_config_path) as f:
@@ -94,8 +97,10 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
 
         self.write_out(new_content, self._spgw_config_path)
 
+        return self.ok('SPGW is configured')
 
-class SPGW_Processor(IJsonProcessor):
+
+class SPGW_Processor(P):
 
     SPGW_CONFIG_PATH = '/usr/local/etc/oai/spgw.conf'
     SPGW_EXECUTABLE = '~/openair-cn/SCRIPTS/run_spgw'
@@ -109,14 +114,28 @@ class SPGW_Processor(IJsonProcessor):
     def process(self, json_dict):
         parser = SPGW_MessageParser(json_dict)
         spgw_config = parser.parse()
-        self._configurator.configure(spgw_config = spgw_config)
-        self._execute_command(spgw_config)
+
+        config_result = self._configurator.configure(spgw_config = spgw_config)
+        if config_result.status == P.Result.FAILED:
+            return P.Result.fail('SPGW configuration is failed, '
+                                 'it will be not exectued',
+                                 **config_result.args)
+
+        return self._execute_command(spgw_config)
 
     def _execute_command(self, spgw_config):
-        if spgw_config.command == 'start':
-            self._runner.start()
-        elif spgw_config.command == 'stop':
-            self._runner.stop()
-        elif spgw_config.command == 'restart':
-            self._runner.restart()
+        if spgw_config.command == utils.CommandConfig.START:
+            return self._runner.start()
+        elif spgw_config.command == utils.CommandConfig.STOP:
+            return self._runner.stop()
+        elif spgw_config.command == utils.CommandConfig.RESTART:
+            return self._runner.restart()
+        elif spgw_config.command == utils.CommandConfig.STATUS:
+            status = 'Running' if self._runner.isRunning else 'Stopped'
+            stdout = self._runner.getOutput()
+            stderr = self._runner.getOutput(stderr=True)
+            return P.Result.ok('Status', status = status,
+                               stderr = stderr, stdout = stdoute)
+        else:
+            return P.Result.fail('Invalid command is given')
 
