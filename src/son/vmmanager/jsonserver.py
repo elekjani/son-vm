@@ -117,7 +117,13 @@ class JsonMsgReader(Protocol):
         self._data = ""
 
     def dataReceived(self, data):
-        self._data += data.decode('utf-8')
+        try:
+            self._data += data.decode('utf-8')
+        except UnicodeDecodeError:
+            self.logger.error('Unable to decode received data. '
+                              'Skipping %s bytes', len(data))
+            return
+
         self.logger.debug("New data from %s: %s", self.transport.getPeer(), self._data)
         for js in self._get_complete_jsons_():
             results = {}
