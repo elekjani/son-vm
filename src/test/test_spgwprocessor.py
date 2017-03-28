@@ -77,7 +77,6 @@ class SPGW_Processor(unittest.TestCase):
         self.assertEqual(RunnerMock.getOutput.call_count, 2)
 
 
-
 class SPGW_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
         CONF_S11_INTERFACE = 'eth0'
@@ -148,7 +147,7 @@ class SPGW_Configurator(unittest.TestCase):
         self.logger.debug('Content written to file %s:\n%s',
                           file_path, self.getContent(file_path))
 
-    def testUpdateMMEConfig(self):
+    def testUpdateSPGWConfig(self):
         S11_INTERFACE = 'SGW_INTERFACE_NAME_FOR_S11'
         S11_IP = 'SGW_IPV4_ADDRESS_FOR_S11'
         SGI_INTERFACE = 'PGW_INTERFACE_NAME_FOR_SGI'

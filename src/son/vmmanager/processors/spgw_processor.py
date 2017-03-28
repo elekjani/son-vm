@@ -76,7 +76,7 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
         sgi_intf, s1u_ip = spgw_config.sgi_interface, spgw_config.s1u_ip
 
         if s11_intf is None and s11_ip is None \
-                and sgi_int is None and s1u_ip is None:
+                and sgi_intf is None and s1u_ip is None:
             return self.warn('No SPGW configuration is privded')
 
         new_content = ""
