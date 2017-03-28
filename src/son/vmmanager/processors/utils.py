@@ -278,6 +278,7 @@ class Runner(object):
             return P.Result.fail('Unable to start task %s, '
                                  'it\'s already started', self._executable)
 
+        self.logger.debug("Starting task %s", self._executable)
         self._task = subprocess.Popen(self._executable,
                                       stdin = subprocess.PIPE,
                                       stdout = subprocess.PIPE,
@@ -285,6 +286,7 @@ class Runner(object):
                                       shell = self._isShell,
                                       bufsize = 0)
 
+        self.logger.debug("Starting IO threads")
         self._std_contents[1] = ""
         self._std_contents[2] = ""
         self._stdout_thread = threading.Thread(target=self._getOutput,
@@ -297,19 +299,26 @@ class Runner(object):
         return P.Result.ok('Task %s is started', self._executable)
 
     def _getOutput(self, std, log_dir):
+        if std not in [1,2]:
+            self.logger.warning('Invalid output descriptor: %d', std)
+            return
+
+        self.logger.debug('IO thread started for output %d', std)
         log_file = None
         if log_dir is not None and os.path.isdir(log_dir):
             if std == 1:
-                log_file = open(os.path.join(log_dir, "stdout"), 'w')
+                file_name = os.path.join(log_dir, "stdout")
+                self.logger.debug('Writing stdout in file %s', file_name)
             elif std == 2:
-                log_file = open(os.path.join(log_dir, "stderr"), 'w')
+                file_name = os.path.join(log_dir, "stderr")
+                self.logger.debug('Writing stderr in file %s', file_name)
+
+            log_file = open(file_name, 'w')
 
         if std == 1:
             output = self._task.stdout
         elif std == 2:
             output = self._task.stderr
-        else:
-            return
 
         line = b' '
         while line is not b'':
