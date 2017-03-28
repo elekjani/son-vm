@@ -265,12 +265,13 @@ class CertificateConfigurator(ConfiguratorHelpers):
 
 class Runner(object):
 
-    def __init__(self, executable, start_shell=False):
+    def __init__(self, executable, log_dir=None, start_shell=False):
         self.logger = logging.getLogger(Runner.__name__)
         self._executable = os.path.expanduser(executable)
         self._task = None
         self._isShell = start_shell
         self._std_contents = {1: "", 2: ""}
+        self._log_dir = log_dir
 
     def start(self):
         if self._task is not None:
@@ -286,20 +287,38 @@ class Runner(object):
 
         self._std_contents[1] = ""
         self._std_contents[2] = ""
-        self._stdout_thread = threading.Thread(target=self._getOutput, args=[1])
-        self._stderr_thread = threading.Thread(target=self._getOutput, args=[2])
+        self._stdout_thread = threading.Thread(target=self._getOutput,
+                                               args=[1, self._log_dir])
+        self._stderr_thread = threading.Thread(target=self._getOutput,
+                                               args=[2, self._log_dir])
         self._stdout_thread.start()
         self._stderr_thread.start()
 
         return P.Result.ok('Task %s is started', self._executable)
 
-    def _getOutput(self, std):
+    def _getOutput(self, std, log_dir):
+        log_file = None
+        if log_dir is not None and os.path.isdir(log_dir):
+            if std == 1:
+                log_file = open(os.path.join(log_dir, "stdout"), 'w')
+            elif std == 2:
+                log_file = open(os.path.join(log_dir, "stderr"), 'w')
+
         if std == 1:
-            for line in self._task.stdout:
-                self._std_contents[1] += line.decode()
+            output = self._task.stdout
         elif std == 2:
-            for line in self._task.stderr:
-                self._std_contents[2] += line.decode()
+            output = self._task.stderr
+        else:
+            return
+
+        for line in output:
+            decoded_line = line.decode()
+            self._std_contents[std] += decoded_line
+            if log_file is not None:
+                log_file.write(decoded_line)
+
+        if log_file is not None:
+            log_file.close()
 
     def stop(self):
         if self._task is None:
