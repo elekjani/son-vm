@@ -110,7 +110,7 @@ class SPGW_Processor(P):
         self.logger = logging.getLogger(SPGW_Processor.__name__)
 
         self._configurator = SPGW_Configurator(config_path = spgw_config_path)
-        self._log_dir = tempfile.TemporaryDirectory(prefix='spgw.processor')
+        self._log_dir = tempfile.TemporaryDirectory(prefix='spgw.processor').name
         self._runner = utils.Runner(self.SPGW_EXECUTABLE, log_dir = self._log_dir)
 
     def process(self, json_dict):
