@@ -311,11 +311,18 @@ class Runner(object):
         else:
             return
 
-        for line in output:
+        line = b' '
+        while line is not b'':
+            try:
+                line = output.readline()
+            except ValueError:
+                break
+
             decoded_line = line.decode()
             self._std_contents[std] += decoded_line
             if log_file is not None:
                 log_file.write(decoded_line)
+
 
         if log_file is not None:
             log_file.close()
