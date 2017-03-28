@@ -132,7 +132,7 @@ class MME_Configurator(utils.ConfiguratorHelpers):
         spgw_ip = mme_config.spgw_ip
 
         if s11_intf is None and mme_ip is None and spgw_ip is None:
-            return self.fail('No MME configuration is provided')
+            return self.warn('No MME configuration is provided')
 
         new_content = ""
         with open(self._mme_config_path) as f:
