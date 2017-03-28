@@ -274,8 +274,8 @@ class Runner(object):
 
     def start(self):
         if self._task is not None:
-            return P.fail('Unable to start task %s, it\'s already started',
-                          self._executable)
+            return P.Result.fail('Unable to start task %s, '
+                                 'it\'s already started', self._executable)
 
         self._task = subprocess.Popen(self._executable,
                                       stdin = subprocess.PIPE,
