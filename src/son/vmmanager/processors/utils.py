@@ -331,8 +331,7 @@ class Runner(object):
 
         output, log_file = self._getOutputAndLogFile(std, log_dir)
 
-        line = b' '
-        while line is not b'':
+        while True:
             try:
                 line = output.readline()
             except ValueError:
@@ -343,6 +342,7 @@ class Runner(object):
             if log_file is not None:
                 log_file.write(decoded_line)
 
+        self.logger.debug('Output %d has been closed, exiting IO thread.', std)
 
         if log_file is not None:
             log_file.close()
