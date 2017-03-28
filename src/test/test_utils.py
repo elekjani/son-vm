@@ -5,6 +5,8 @@ import unittest
 import logging
 import os.path
 
+logging.basicConfig(level=logging.DEBUG)
+
 class Runner(unittest.TestCase):
 
     def setUp(self):
@@ -23,7 +25,8 @@ class Runner(unittest.TestCase):
 
     def testLogFile(self):
         with tempfile.TemporaryDirectory() as log_dir:
-            self.task = utils.Runner('echo Test text', log_dir = log_dir,
+            self.task = utils.Runner('echo Test text',
+                                     log_dir = log_dir,
                                      start_shell=True)
             self.task.start()
             while self.task.isRunning(): pass

@@ -8,7 +8,7 @@ setup(
         package_dir={'': 'src'},
         packages=find_packages('src'),  # dependency resolution
         namespace_packages=['son', ],
-        install_requires=['setuptools', 'twisted'],
+        install_requires=['setuptools', 'twisted', 'psutil'],
         zip_safe=False,
         entry_points={
             'console_scripts': [

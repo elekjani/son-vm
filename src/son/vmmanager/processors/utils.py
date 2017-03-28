@@ -5,6 +5,7 @@ import time
 import logging
 import sys
 import subprocess
+import psutil
 import shutil
 import tempfile
 import threading
@@ -354,14 +355,15 @@ class Runner(object):
             return P.Result.warn('Unable to stop task %s, it\'s not started',
                                  self._executable)
 
-        self.logger.debug('Killing task')
+        self.logger.debug('Killing task %s', self._executable)
         if self.isRunning():
-            if 'win' in sys.platform:
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self._task.pid)])
-            elif 'linux' in sys.platform:
-                subprocess.call(['kill', '-9', str(self._task.pid)])
-            else:
-                self._task.kill()
+            p = psutil.Process(self._task.pid)
+            for ch in p.children(recursive=True):
+                if ch.is_running():
+                    self.logger.debug('Killing subprocess %s for task %s',
+                                      ch.name(), self._executable)
+                    ch.terminate()
+            p.terminate()
 
         self.logger.debug('Closing task\'s standard IOs')
         self._task.stdin.close()
