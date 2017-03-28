@@ -328,10 +328,12 @@ class Runner(object):
             log_file.close()
 
     def stop(self):
+        self.logger.info('Stopping task %s', self._executable)
         if self._task is None:
-            return P.warn('Unable to stop task %s, it\'s not started',
-                          self._executable)
+            return P.Result.warn('Unable to stop task %s, it\'s not started',
+                                 self._executable)
 
+        self.logger.debug('Killing task')
         if self.isRunning():
             if 'win' in sys.platform:
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self._task.pid)])
@@ -339,11 +341,17 @@ class Runner(object):
                 subprocess.call(['kill', '-9', str(self._task.pid)])
             else:
                 self._task.kill()
+
+        self.logger.debug('Closing task\'s standard IOs')
         self._task.stdin.close()
         self._task.stdout.close()
         self._task.stderr.close()
+
+        self.logger.debug('Waiting task to stop')
         self._task.wait()
         self._task = None
+
+        self.logger.debug('Waiting standard IO threads to stop')
         self._stderr_thread.join()
         self._stdout_thread.join()
 
