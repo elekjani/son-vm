@@ -3,6 +3,7 @@ from son.vmmanager.processors import utils
 from son.vmmanager.processors.utils import REGEX_IPV4_MASK
 from son.vmmanager.processors.utils import REGEX_IPV4
 
+import tempfile
 import logging
 import re
 import os
@@ -176,7 +177,8 @@ class MME_Processor(P):
                                               mme_freediameter_config_path,
                                               host_file_path,
                                               cert_exe, cert_path)
-        self._runner = utils.Runner(self.MME_EXECUTABLE)
+        self._log_dir = tempfile.TemporaryDirectory(prefix='mme.processor')
+        self._runner = utils.Runner(self.MME_EXECUTABLE, log_dir = self._log_dir)
 
     def process(self, json_dict):
         parser = MME_MessageParser(json_dict)

@@ -1,6 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 
+import tempfile
 import logging
 import re
 import os
@@ -124,8 +125,8 @@ class HSS_Processor(P):
                                               host_file_path = host_file_path,
                                               cert_exe = hss_certificate_exe,
                                               cert_path = hss_certificate_path)
-        self._runner = utils.Runner(self.HSS_EXECUTABLE)
-
+        self._log_dir = tempfile.TemporaryDirectory(prefix='hss.processor')
+        self._runner = utils.Runner(self.HSS_EXECUTABLE, log_dir=self._log_dir)
 
     def process(self, json_dict):
         parser = HSS_MessageParser(json_dict)

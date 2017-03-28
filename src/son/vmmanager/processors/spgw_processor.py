@@ -1,6 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 
+import tempfile
 import logging
 import re
 import os
@@ -109,7 +110,8 @@ class SPGW_Processor(P):
         self.logger = logging.getLogger(SPGW_Processor.__name__)
 
         self._configurator = SPGW_Configurator(config_path = spgw_config_path)
-        self._runner = utils.Runner(self.SPGW_EXECUTABLE)
+        self._log_dir = tempfile.TemporaryDirectory(prefix='spgw.processor')
+        self._runner = utils.Runner(self.SPGW_EXECUTABLE, log_dir = self._log_dir)
 
     def process(self, json_dict):
         parser = SPGW_MessageParser(json_dict)
