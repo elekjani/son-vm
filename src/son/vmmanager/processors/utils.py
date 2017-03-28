@@ -341,6 +341,7 @@ class Runner(object):
             self._std_contents[std] += decoded_line
             if log_file is not None:
                 log_file.write(decoded_line)
+                log_file.flush()
 
         self.logger.debug('Output %d has been closed, exiting IO thread.', std)
 
