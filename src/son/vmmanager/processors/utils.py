@@ -312,7 +312,7 @@ class Runner(object):
 
             log_file = open(file_name, 'w')
         else:
-            self.logger.debug('Logging directory %s is not a valid direcotyr',
+            self.logger.debug('Logging directory %s is not a valid directory',
                               log_dir)
 
         if std == 1:

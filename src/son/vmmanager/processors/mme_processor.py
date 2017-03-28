@@ -177,8 +177,10 @@ class MME_Processor(P):
                                               mme_freediameter_config_path,
                                               host_file_path,
                                               cert_exe, cert_path)
-        self._log_dir = tempfile.TemporaryDirectory(prefix='mme.processor').name
-        self._runner = utils.Runner(self.MME_EXECUTABLE, log_dir = self._log_dir)
+        self._log_dir = tempfile.TemporaryDirectory(prefix='mme.processor')
+        self._log_dir_name = self._log_dir.name
+        self._runner = utils.Runner(self.MME_EXECUTABLE,
+                                    log_dir = self._log_dir_name)
 
     def process(self, json_dict):
         parser = MME_MessageParser(json_dict)

@@ -125,8 +125,10 @@ class HSS_Processor(P):
                                               host_file_path = host_file_path,
                                               cert_exe = hss_certificate_exe,
                                               cert_path = hss_certificate_path)
-        self._log_dir = tempfile.TemporaryDirectory(prefix='hss.processor').name
-        self._runner = utils.Runner(self.HSS_EXECUTABLE, log_dir=self._log_dir)
+        self._log_dir = tempfile.TemporaryDirectory(prefix='hss.processor')
+        self._log_dir_name = self._log_dir.name
+        self._runner = utils.Runner(self.HSS_EXECUTABLE,
+                                    log_dir=self._log_dir_name)
 
     def process(self, json_dict):
         parser = HSS_MessageParser(json_dict)
