@@ -267,7 +267,7 @@ class Runner(object):
 
     def __init__(self, executable, start_shell=False):
         self.logger = logging.getLogger(Runner.__name__)
-        self._executable = executable
+        self._executable = os.path.expanduser(executable)
         self._task = None
         self._isShell = start_shell
         self._std_contents = {1: "", 2: ""}
