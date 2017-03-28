@@ -136,6 +136,8 @@ class SPGW_Processor(P):
             stderr = self._runner.getOutput(stderr=True)
             return P.Result.ok('Status', task_status = status,
                                stderr = stderr, stdout = stdout)
+        elif spgw_config.command is None:
+            return P.Result.warn('No command is given')
         else:
             return P.Result.fail('Invalid command is given')
 
