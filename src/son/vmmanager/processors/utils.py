@@ -298,14 +298,11 @@ class Runner(object):
 
         return P.Result.ok('Task %s is started', self._executable)
 
-    def _getOutput(self, std, log_dir):
-        if std not in [1,2]:
-            self.logger.warning('Invalid output descriptor: %d', std)
-            return
-
-        self.logger.debug('IO thread started for output %d', std)
+    def _getOutputAndLogFile(self, std, log_dir):
         log_file = None
-        if log_dir is not None and os.path.isdir(log_dir):
+        if log_dir is None:
+            self.logger.debug('No logging directory is given')
+        elif os.path.isdir(log_dir):
             if std == 1:
                 file_name = os.path.join(log_dir, "stdout")
                 self.logger.debug('Writing stdout in file %s', file_name)
@@ -314,11 +311,25 @@ class Runner(object):
                 self.logger.debug('Writing stderr in file %s', file_name)
 
             log_file = open(file_name, 'w')
+        else:
+            self.logger.debug('Logging directory %s is not a valid direcotyr',
+                              log_dir)
 
         if std == 1:
             output = self._task.stdout
         elif std == 2:
             output = self._task.stderr
+
+        return (output, log_file)
+
+    def _getOutput(self, std, log_dir):
+        if std not in [1,2]:
+            self.logger.warning('Invalid output descriptor: %d', std)
+            return
+
+        self.logger.debug('IO thread started for output %d', std)
+
+        output, log_file = self._getOutputAndLogFile(std, log_dir)
 
         line = b' '
         while line is not b'':
