@@ -1,5 +1,4 @@
 from son.client.protocol import ClientFactory
-from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet import reactor
 
 import argparse
@@ -17,12 +16,13 @@ class Client(object):
         self.mme_data = mme_data
         self.spgw_data = spgw_data
         self._init_configs()
+        self.__init__connection()
 
     def _init_connection(self):
         self.factory = ClientFactory([
             (self.hss_mgmt, self.hss_config),
             (self.mme_mgmt, self.mme_config),
-            (self.spgw_mgmt, self.spgw_config),
+            (self.spgw_mgmt, self.spgw_config)
         ])
 
     def _init_configs(self):
@@ -68,21 +68,24 @@ class Client(object):
 
 def main(argv = sys.argv[1:]):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hss_mgmt', required=True,
-                        help='Management address for HSS')
-    parser.add_argument('--hss_data', required=True,
-                        help='Data plane address for HSS')
-    parser.add_argument('--mme_mgmt', required=True,
-                        help='Management address for MME')
-    parser.add_argument('--mme_data', required=True,
-                        help='Data plane address for MME')
-    parser.add_argument('--spgw_mgmt', required=True,
-                        help='Management address for SPGW')
-    parser.add_argument('--spgw_data', required=True,
-                        help='Data plane address for SPGW')
     parser.add_argument('--verbose','-v', action='store_true', dest='verbose',
                         default=False, help='Verbose')
-    args = parser.parse_args(argv)
+    args, remaining_argv = parser.parse_known_args(argv)
+
+    configArguments = argparse.ArgumentParser()
+    configArguments.add_argument('--hss_mgmt', required=True,
+                                 help='Management address for HSS')
+    configArguments.add_argument('--hss_data', required=True,
+                                 help='Data plane address for HSS')
+    configArguments.add_argument('--mme_mgmt', required=True,
+                                 help='Management address for MME')
+    configArguments.add_argument('--mme_data', required=True,
+                                 help='Data plane address for MME')
+    configArguments.add_argument('--spgw_mgmt', required=True,
+                                 help='Management address for SPGW')
+    configArguments.add_argument('--spgw_data', required=True,
+                                 help='Data plane address for SPGW')
+    configArgs = configArguments.parse_args(remaining_argv)
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -90,7 +93,12 @@ def main(argv = sys.argv[1:]):
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    c = Client(hss_mgmt = args.hss_mgmt, hss_data = args.hss_data,
-               mme_mgmt = args.mme_mgmt, mme_data = args.mme_data,
-               spgw_mgmt = args.spgw_mgmt, spgw_data = args.spgw_data)
+    logger.info('Got cli parameters:')
+    configDict = vars(configArgs)
+    for param in configDict:
+        logger.info('%s -> %s', param, configDict[param])
+
+    c = Client(hss_mgmt = configArgs.hss_mgmt, hss_data = configArgs.hss_data,
+               mme_mgmt = configArgs.mme_mgmt, mme_data = configArgs.mme_data,
+               spgw_mgmt = configArgs.spgw_mgmt, spgw_data = configArgs.spgw_data)
     c.start()
