@@ -335,10 +335,14 @@ class Runner(object):
         while True:
             try:
                 line = output.readline()
+                decoded_line = line.decode()
             except ValueError:
                 break
+            except UnicodeDecodeError:
+                self.logger.warning('Invalid characters on output %d: %s',
+                                    std, line.hex())
+                continue
 
-            decoded_line = line.decode()
             self._std_contents[std] += decoded_line
             if log_file is not None:
                 log_file.write(decoded_line)
