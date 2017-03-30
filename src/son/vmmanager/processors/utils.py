@@ -341,6 +341,10 @@ class Runner(object):
                                     std, line.hex())
                 continue
             except ValueError:
+                self.logger.error('Output is closed')
+                break
+            except OSError:
+                self.logger.error('Output is closed')
                 break
 
             self._std_contents[std] += decoded_line

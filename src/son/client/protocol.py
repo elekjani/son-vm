@@ -60,7 +60,7 @@ class ClientProtocol(Protocol):
     @onCallback
     def sendStop(self):
         self._logPeer('Sending stop command to')
-        jsonString = json.dumps({ 'command': 'start' })
+        jsonString = json.dumps({ 'command': 'stop' })
         self.transport.write(jsonString.encode())
         return self
 
@@ -83,9 +83,7 @@ class ClientFactory(CF):
             d = defer.gatherResults(
                 [p.sendStop() for p in self.protocols.values()]
             )
-            d.addCallback(lambda ds: defer.gatherResults(ds).addCallback(
-                lambda r: reactor.stop()
-            ))
+            d.addCallback(lambda r: reactor.stop())
         else:
             d = defer.gatherResults(
                 [p.sendConfig() for p in self.protocols.values()]
