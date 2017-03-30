@@ -167,7 +167,7 @@ class MME_Processor(P):
     MME_EXECUTABLE = '~/openair-cn/SCRIPTS/run_mme'
 
     def __init__(self, mme_config_path = MME_CONFIG_PATH,
-                 mme_freediameter_config_path = MME_CONFIG_PATH,
+                 mme_freediameter_config_path = MME_FREEDIAMETER_CONFIG_PATH,
                  host_file_path = HOST_FILE_PATH,
                  cert_exe = MME_CERTIFICATE_CREATOR,
                  cert_path = MME_CERTIFICATE_PATH):
