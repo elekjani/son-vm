@@ -16,14 +16,13 @@ class Client(object):
         self.mme_data = mme_data
         self.spgw_data = spgw_data
         self._init_configs()
-        self._init_connection()
 
-    def _init_connection(self):
+    def _init_connection(self, isStopping = False):
         self.factory = ClientFactory([
             (self.hss_mgmt, self.hss_config),
             (self.mme_mgmt, self.mme_config),
             (self.spgw_mgmt, self.spgw_config)
-        ])
+        ], isStopping = isStopping)
 
     def _init_configs(self):
         self.hosts = {
@@ -63,15 +62,15 @@ class Client(object):
         }
 
     def start(self):
+        self._init_connection()
+        reactor.run()
+
+    def stop(self):
+        self._init_connection(isStopping = True)
         reactor.run()
 
 
-def main(argv = sys.argv[1:]):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose','-v', action='store_true', dest='verbose',
-                        default=False, help='Verbose')
-    args, remaining_argv = parser.parse_known_args(argv)
-
+def parseConfigArgs(argv):
     configArguments = argparse.ArgumentParser()
     configArguments.add_argument('--hss_mgmt', required=True,
                                  help='Management address for HSS')
@@ -85,9 +84,22 @@ def main(argv = sys.argv[1:]):
                                  help='Management address for SPGW')
     configArguments.add_argument('--spgw_data', required=True,
                                  help='Data plane address for SPGW')
-    configArgs = configArguments.parse_args(remaining_argv)
+    return configArguments.parse_args(argv)
 
-    if args.verbose:
+def parseGeneralArgs(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--verbose','-v', action='store_true', dest='verbose',
+                        default=False, help='Verbose')
+    parser.add_argument('--stop','-s', action='store_true', dest='stop',
+                        default=False, help='Verbose')
+    return parser.parse_known_args(argv)
+
+
+def main(argv = sys.argv[1:]):
+    generalArgs, remaining_argv = parseGeneralArgs(argv)
+    configArgs = parseConfigArgs(remaining_argv)
+
+    if generalArgs.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
@@ -101,4 +113,8 @@ def main(argv = sys.argv[1:]):
     c = Client(hss_mgmt = configArgs.hss_mgmt, hss_data = configArgs.hss_data,
                mme_mgmt = configArgs.mme_mgmt, mme_data = configArgs.mme_data,
                spgw_mgmt = configArgs.spgw_mgmt, spgw_data = configArgs.spgw_data)
-    c.start()
+
+    if generalArgs.stop:
+        c.stop()
+    else:
+        c.start()

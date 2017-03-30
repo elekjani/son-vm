@@ -57,6 +57,13 @@ class ClientProtocol(Protocol):
         self.transport.write(jsonString.encode())
         return self
 
+    @onCallback
+    def sendStop(self):
+        self._logPeer('Sending stop command to')
+        jsonString = json.dumps({ 'command': 'start' })
+        self.transport.write(jsonString.encode())
+        return self
+
     def _logPeer(self, message):
         dst = self.transport.getPeer()
         self.logger.info('%s %s:%s', message, dst.host, dst.port)
@@ -64,23 +71,29 @@ class ClientProtocol(Protocol):
 
 class ClientFactory(CF):
 
-    def __init__(self, configs, port = 38388):
+    def __init__(self, configs, isStopping = False, port = 38388):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.protocols = {}
-        self.configs = configs
-        configDefers = []
-        for host,config in self.configs:
+        for host,config in configs:
             self.logger.info('Creating connection to %s:%s', host, port)
             self.protocols[host] = ClientProtocol(config)
             reactor.connectTCP(host, port, self)
-            d = self.protocols[host].sendConfig()
-            configDefers.append(d)
 
-        d = defer.gatherResults(configDefers)
-        d.addCallback(lambda r: [p.sendStart() for p in r])
-        d.addCallback(lambda ds: defer.gatherResults(ds).addCallback(
-            lambda r: reactor.stop()
-        ))
+        if isStopping:
+            d = defer.gatherResults(
+                [p.sendStop() for p in self.protocols.values()]
+            )
+            d.addCallback(lambda ds: defer.gatherResults(ds).addCallback(
+                lambda r: reactor.stop()
+            ))
+        else:
+            d = defer.gatherResults(
+                [p.sendConfig() for p in self.protocols.values()]
+            )
+            d.addCallback(lambda r: [p.sendStart() for p in r])
+            d.addCallback(lambda ds: defer.gatherResults(ds).addCallback(
+                lambda r: reactor.stop()
+            ))
 
     def buildProtocol(self, addr):
         self.logger.info('Building protocol for %s:%s', addr.host, addr.port)
