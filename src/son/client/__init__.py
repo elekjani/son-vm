@@ -16,7 +16,7 @@ class Client(object):
         self.mme_data = mme_data
         self.spgw_data = spgw_data
         self._init_configs()
-        self.__init__connection()
+        self._init_connection()
 
     def _init_connection(self):
         self.factory = ClientFactory([

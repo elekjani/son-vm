@@ -6,41 +6,60 @@ import json
 
 class ClientProtocol(Protocol):
 
-    def __init__(self, config, connectionMadeDefer):
+    def __init__(self, config):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config = config
-        self.connectionMadeDefer = connectionMadeDefer
+        self._connection_defer = defer.Deferred()
+
+    def onCallback(func):
+        def _tmp(self, *args, **kwargs):
+            returnDefer = defer.Deferred()
+
+            def callAndSet():
+                self._current_defer = defer.Deferred()
+                returnValue = func(self, *args, **kwargs)
+                self._current_defer.addCallback(
+                    lambda r: returnDefer.callback(returnValue)
+                )
+                return self._current_defer
+
+            ad = lambda d: callAndSet() if d is None else d.addCallback(ad)
+            self._connection_defer.addCallback(ad)
+
+            return returnDefer
+
+        return _tmp
 
     def dataReceived(self, data):
-        dst = self.transport.getPeer()
-        self.logger.info('Received data from %s:%s', dst.host, dst.port)
+        self._logPeer('Received data from')
         self.logger.info('Data: %s', data)
+        self._current_defer.callback(None)
 
     def connectionMade(self):
-        dst = self.transport.getPeer()
-        self.logger.info('Connection ready to %s:%s', dst.host, dst.port)
-        self.connectionMadeDefer.callback(0)
+        self._logPeer('Connection ready to')
+        self._connection_defer.callback(None)
 
     def connectionLost(self, reason):
-        dst = self.transport.getPeer()
-        self.logger.info('Connection lost to %s:%s', dst.host, dst.port)
+        self._logPeer('Connection lost to')
         self.logger.info('Reason: %s', reason)
 
-    def sendStart(self, startDefer = None):
-        dst = self.transport.getPeer()
-        self.logger.info('Sending start command to %s:%s', dst.host, dst.port)
+    @onCallback
+    def sendStart(self):
+        self._logPeer('Sending start command to')
         jsonString = json.dumps({ 'command': 'start' })
         self.transport.write(jsonString.encode())
-        if starDefer is not None:
-            startDefer.callback(0)
+        return self
 
-    def sendConfig(self, configDefer = None):
-        dst = self.transport.getPeer()
-        self.logger.info('Sending configuration to %s:%s', dst.host, dst.port)
+    @onCallback
+    def sendConfig(self):
+        self._logPeer('Sending configuration to')
         jsonString = json.dumps(self.config)
         self.transport.write(jsonString.encode())
-        if configDefer is not None:
-            configDefer.callback(0)
+        return self
+
+    def _logPeer(self, message):
+        dst = self.transport.getPeer()
+        self.logger.info('%s %s:%s', message, dst.host, dst.port)
 
 
 class ClientFactory(CF):
@@ -49,46 +68,27 @@ class ClientFactory(CF):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.protocols = {}
         self.configs = configs
-        self.connectionDefers = {}
-        for c in self.configs:
-            self.connectionDefers[c[0]] = defer.Deferred()
-            self.logger.info('Creating connection to %s:%s', c[0], port)
-            reactor.connectTCP(c[0], port, self)
+        configDefers = []
+        for host,config in self.configs:
+            self.logger.info('Creating connection to %s:%s', host, port)
+            self.protocols[host] = ClientProtocol(config)
+            reactor.connectTCP(host, port, self)
+            d = self.protocols[host].sendConfig()
+            configDefers.append(d)
 
-        defers = [d for d in self.connectionDefers.values()]
-        self.connectionDefer = defer.gatherResults(defers)
-        self.connectionDefer.addCallback(self.allConnected)
-
-    def allConnected(self, result):
-        for c in self.configs:
-            self.protocols[c[0]].sendConfig()
-
-        self.configurationDone(0)
-
-    def configurationDone(self, result):
-        for c in self.configs:
-            self.protocols[c[0]].sendStart()
-
-        self.startingDone(0)
-
-    def startingDone(self, result):
-        reactor.stop()
-
-    def startedConnecting(self, connector):
-        dst = connector.getDestination()
-        self.logger.info('Starting to connect %s:%s', dst.host, dst.port)
-        self.protocols[dst.host] = None
+        d = defer.gatherResults(configDefers)
+        d.addCallback(lambda r: [p.sendStart() for p in r])
+        d.addCallback(lambda ds: defer.gatherResults(ds).addCallback(
+            lambda r: reactor.stop()
+        ))
 
     def buildProtocol(self, addr):
         self.logger.info('Building protocol for %s:%s', addr.host, addr.port)
-        config = [c[1] for c in self.configs if c[0] == addr.host]
-        if len(config) is not 1:
-            self.logger.error('Address %s is not found in configs', addr.host)
-            reactor.stop()
-            return
-        protocol = ClientProtocol(config[0], self.connectionDefers[addr.host])
-        self.protocols[addr.host] = protocol
-        return protocol
+        return self.protocols[addr.host]
+
+    def startedConnecting(self, connector):
+        dst = connector.getDestination()
+        self.logger.info('Starting to connect to %s:%s', dst.host, dst.port)
 
     def clientConnectionLost(self, connector, reason):
         dst = connector.getDestination()
@@ -100,6 +100,3 @@ class ClientFactory(CF):
         self.logger.info('Connection failed to %s:%s', dst.host, dst.port)
         self.logger.info('Reason: %s', reason)
         self.protocols[dst.host] = None
-
-
-
