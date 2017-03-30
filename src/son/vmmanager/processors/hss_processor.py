@@ -50,9 +50,13 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
     REGEX_MYSQL_USER = '(.*)"@MYSQL_user@"'
     REGEX_MYSQL_PASS = '(.*)"@MYSQL_pass@"'
 
-    def __init__(self, config_path, host_file_path,
+    REGEX_IDENTITY = '(^Identity = )"[a-zA-Z\.0-9]+"'
+    REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
+
+    def __init__(self, config_path, fd_config_path, host_file_path,
                  cert_exe = None, cert_path = None):
         self._hss_config_path = config_path
+        self._hss_fd_config_path = fd_config_path
         self._host_configurator = utils.HostConfigurator(host_file_path)
         self._cert_configurator = utils.CertificateConfigurator(cert_exe,
                                                                 cert_path)
@@ -60,6 +64,7 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
 
     def configure(self, hss_config):
         hss_result = self._configure_hss(hss_config)
+        hss_fd_result = self._configure_hss_freediameter(hss_config)
         host_result = self._host_configurator.configure(hss_config)
         cert_result = self._cert_configurator.configure(hss_config.hss_host)
 
@@ -78,6 +83,34 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
                                  cert=cert_result.message)
 
         return self.ok('HSS is fully configured')
+
+    def _configure_hss_freediameter(self, hss_config):
+        if not os.path.isfile(self._hss_fd_config_path):
+            return self.fail('HSS freediameter config file is not found at '
+                             '%s', self._hss_fd_config_path)
+
+        hss_host = hss_config.hss_host
+        realm = '.'.join(hss_host.split('.')[1:]) if hss_host is not None else None
+
+        if hss_host is None and realm is None:
+            return self.warn('No HSS freediameter configuration is privded')
+
+        new_content = ""
+        with open(self._hss_fd_config_path) as f:
+            for line in f:
+                self._current_line = line
+
+                if hss_host is not None:
+                    self.sed_it(self.REGEX_IDENTITY, hss_host)
+
+                if realm is not None:
+                    self.sed_it(self.REGEX_REALM, realm)
+
+                new_content += self._current_line
+
+        self.write_out(new_content, self._hss_fd_config_path)
+
+        return self.ok('HSS freediameter is configured')
 
     def _configure_hss(self, hss_config):
         if not os.path.isfile(self._hss_config_path):
@@ -108,6 +141,7 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
 
 class HSS_Processor(P):
 
+    HSS_FREEDIAMETER_CONFIG_PATH = '/usr/local/etc/oai/freeDiameter/hss_fd.conf'
     HSS_CONFIG_PATH = '/usr/local/etc/oai/hss.conf'
     HOST_FILE_PATH = '/etc/hosts'
     HSS_CERTIFICATE_EXECUTABLE = '~/openair-cn/SCRIPTS/check_hss_s6a_certificate'
@@ -115,16 +149,17 @@ class HSS_Processor(P):
     HSS_EXECUTABLE = '~/openair-cn/SCRIPTS/run_hss'
 
     def __init__(self, hss_config_path = HSS_CONFIG_PATH,
-                 hss_freediameter_config_path = HSS_CONFIG_PATH,
+                 hss_freediameter_config_path = HSS_FREEDIAMETER_CONFIG_PATH,
                  hss_certificate_exe = HSS_CERTIFICATE_EXECUTABLE,
                  hss_certificate_path = HSS_CERTIFICATE_PATH,
                  host_file_path = HOST_FILE_PATH):
         self.logger = logging.getLogger(HSS_Processor.__name__)
 
-        self._configurator = HSS_Configurator(config_path = hss_config_path,
-                                              host_file_path = host_file_path,
-                                              cert_exe = hss_certificate_exe,
-                                              cert_path = hss_certificate_path)
+        self._configurator = HSS_Configurator(hss_config_path,
+                                              hss_freediameter_config_path,
+                                              host_file_path,
+                                              hss_certificate_exe,
+                                              hss_certificate_path)
         self._log_dir = tempfile.TemporaryDirectory(prefix='hss.processor')
         self._log_dir_name = self._log_dir.name
         self._runner = utils.Runner(self.HSS_EXECUTABLE,

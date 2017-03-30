@@ -78,7 +78,6 @@ class HSS_Processor(unittest.TestCase):
         self.assertEqual(RunnerMock.getOutput.call_count, 2)
 
 
-
 class HSS_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
@@ -224,6 +223,8 @@ class HSS_Configurator(unittest.TestCase):
         os.close(os_fd)
         os_fd, self.hss_config = tempfile.mkstemp()
         os.close(os_fd)
+        os_fd, self.hss_fd_config = tempfile.mkstemp()
+        os.close(os_fd)
 
     def tearDown(self):
         os.remove(self.host_file)
@@ -254,7 +255,8 @@ class HSS_Configurator(unittest.TestCase):
 
     def testWriteHostFile(self):
         configurator = hss_p.HSS_Configurator(self.hss_config,
-                                              self.host_file)
+                                              self.hss_fd_config,
+                                              host_file_path = self.host_file)
 
 
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
@@ -286,7 +288,8 @@ class HSS_Configurator(unittest.TestCase):
         self.writeContent('%s %s\n' % (CUSTOM_IP, CUSTOM_H), self.host_file)
 
         configurator = hss_p.HSS_Configurator(self.hss_config,
-                                              self.host_file)
+                                              self.hss_fd_config,
+                                              host_file_path = self.host_file)
 
         config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
@@ -314,7 +317,8 @@ class HSS_Configurator(unittest.TestCase):
         MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
 
         configurator = hss_p.HSS_Configurator(self.hss_config,
-                                              self.host_file)
+                                              self.hss_fd_config,
+                                              host_file_path = self.host_file)
 
         config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
@@ -345,7 +349,8 @@ class HSS_Configurator(unittest.TestCase):
         self.writeContent('%s %s\n' % (CUSTOM_IP, CUSTOM_H), self.host_file)
 
         configurator = hss_p.HSS_Configurator(self.hss_config,
-                                              self.host_file)
+                                              self.hss_fd_config,
+                                              host_file_path = self.host_file)
 
         config = hss_p.HSS_Config()
 
