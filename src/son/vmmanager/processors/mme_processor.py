@@ -47,7 +47,7 @@ class MME_Configurator(utils.ConfiguratorHelpers):
     REGEX_S11_IPV4 = '(MME_IPV4_ADDRESS_FOR_S11_MME += )"%s"' % REGEX_IPV4_MASK
     REGEX_SGW_IPV4 = '(SGW_IPV4_ADDRESS_FOR_S11 += )"%s"' % REGEX_IPV4_MASK
 
-    REGEX_IDENTITY = '(^Identity = ).*'
+    REGEX_IDENTITY = '(^Identity = )"[a-zA-Z\.0-9]+"'
     REGEX_CONNECT_PEER = r'(^ConnectPeer = )"[a-zA-Z\.0-9]+"'
     REGEX_CONNECT_TO = r'(ConnectTo = )"%s"' % REGEX_IPV4
     REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
