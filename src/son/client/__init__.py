@@ -8,13 +8,17 @@ import sys
 class Client(object):
 
     def __init__(self, hss_mgmt, mme_mgmt, spgw_mgmt,
-                 hss_data, mme_data, spgw_data):
+                 hss_data, mme_data, spgw_data,
+                 hss_host, mme_host, spgw_host):
         self.hss_mgmt = hss_mgmt
         self.mme_mgmt = mme_mgmt
         self.spgw_mgmt = spgw_mgmt
         self.hss_data = hss_data
         self.mme_data = mme_data
         self.spgw_data = spgw_data
+        self.hss_host = hss_host
+        self.mme_host = mme_host
+        self.spgw_host = spgw_host
         self._init_configs()
 
     def _init_connection(self, isStopping = False):
@@ -27,15 +31,15 @@ class Client(object):
     def _init_configs(self):
         self.hosts = {
             'hss': {
-                'host_name': 'hss.openair4G.eur',
+                'host_name': '%s.openair4G.eur' % self.hss_host,
                 'ip': self.hss_data
             },
             'mme': {
-                'host_name': 'mme.openair4G.eur',
+                'host_name': '%s.openair4G.eur' % self.mme_host,
                 'ip': self.mme_data
             },
             'spgw': {
-                'host_name': 'spgw.openair4G.eur',
+                'host_name': '%s.openair4G.eur' % self.spgw_host,
                 'ip': self.spgw_data
             }
         }
@@ -76,14 +80,20 @@ def parseConfigArgs(argv):
                                  help='Management address for HSS')
     configArguments.add_argument('--hss_data', required=True,
                                  help='Data plane address for HSS')
+    configArguments.add_argument('--hss_host', required=True,
+                                 help='Hostname for HSS')
     configArguments.add_argument('--mme_mgmt', required=True,
                                  help='Management address for MME')
     configArguments.add_argument('--mme_data', required=True,
                                  help='Data plane address for MME')
+    configArguments.add_argument('--mme_host', required=True,
+                                 help='Hostname for MME')
     configArguments.add_argument('--spgw_mgmt', required=True,
                                  help='Management address for SPGW')
     configArguments.add_argument('--spgw_data', required=True,
                                  help='Data plane address for SPGW')
+    configArguments.add_argument('--spgw_host', required=True,
+                                 help='Hostname for SPGW')
     return configArguments.parse_args(argv)
 
 def parseGeneralArgs(argv):
@@ -112,7 +122,9 @@ def main(argv = sys.argv[1:]):
 
     c = Client(hss_mgmt = configArgs.hss_mgmt, hss_data = configArgs.hss_data,
                mme_mgmt = configArgs.mme_mgmt, mme_data = configArgs.mme_data,
-               spgw_mgmt = configArgs.spgw_mgmt, spgw_data = configArgs.spgw_data)
+               spgw_mgmt = configArgs.spgw_mgmt, spgw_data = configArgs.spgw_data,
+               hss_host = configArgs.hss_host, mme_host = configArgs.mme_host,
+               spgw_host = configArgs.spgw_host)
 
     if generalArgs.stop:
         c.stop()
