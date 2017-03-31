@@ -77,7 +77,6 @@ class MME_Processor(unittest.TestCase):
         self.assertEqual(RunnerMock.getOutput.call_count, 2)
 
 
-
 class MME_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'

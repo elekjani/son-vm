@@ -1,6 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
 
+import pymysql.cursors
 import tempfile
 import logging
 import re
@@ -53,6 +54,27 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
     REGEX_IDENTITY = '(^Identity = )"[a-zA-Z\.0-9]+"'
     REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
 
+    MYSQL_HOST = 'localhost'
+    MYSQL_DB = 'oai_db'
+    MYSQL_MME_TABLE = 'mmeidentity'
+    MYSQL_MME_HOST_COLUMN = 'mmehost'
+    MYSQL_MME_REALM_COLUMN = 'mmerealm'
+    MYSQL_MME_UE_REACH_COLUMN = 'UE-Reachability'
+
+    MYSQL_INSERT = 'INSERT INTO `%s` (`%s`, `%s`, `%s`) VALUE (%%s, %%s, %%s)'
+    MYSQL_INSERT = MYSQL_INSERT % (MYSQL_MME_TABLE,
+                                   MYSQL_MME_HOST_COLUMN,
+                                   MYSQL_MME_REALM_COLUMN,
+                                   MYSQL_MME_UE_REACH_COLUMN)
+
+    MYSQL_SELECT = 'SELECT * FROM `%s` WHERE `%s`=%%s'
+    MYSQL_SELECT = MYSQL_SELECT % (MYSQL_MME_TABLE,
+                                   MYSQL_MME_HOST_COLUMN)
+
+    MYSQL_DELETE = 'DELETE * FROM `%s` WHERE `%s`=%%s'
+    MYSQL_DELETE = MYSQL_DELETE % (MYSQL_MME_TABLE,
+                                   MYSQL_MME_HOST_COLUMN)
+
     def __init__(self, config_path, fd_config_path, host_file_path,
                  cert_exe = None, cert_path = None):
         self._hss_config_path = config_path
@@ -65,10 +87,12 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
     def configure(self, hss_config):
         hss_result = self._configure_hss(hss_config)
         hss_fd_result = self._configure_hss_freediameter(hss_config)
+        mysql_result = self._configure_mysql_mme(hss_config)
         host_result = self._host_configurator.configure(hss_config)
         cert_result = self._cert_configurator.configure(hss_config.hss_host)
 
-        results = [hss_result, host_result, cert_result]
+        results = [hss_result, host_result, hss_fd_result,
+                   mysql_result, cert_result]
 
         if P.Result.FAILED in [r.status for r in results]:
             return self.fail('HSS configuration failed',
@@ -137,6 +161,71 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
         self.write_out(new_content, self._hss_config_path)
 
         return self.ok('HSS is configured')
+
+    def _configure_mysql_mme(self, hss_config):
+        user = hss_config.mysql_user
+        password = hss_config.mysql_pass
+
+        if user is None or password is None:
+            return self.warn('Unable to configure MySQL '
+                             'no user and password provided')
+
+        mme_host = hss_config.mme_host
+        realm = '.'.join(mme_host.split('.')[1:]) if mme_host is not None else None
+
+        if mme_host is None and realm is None:
+            return self.warn('No HSS host and realm is provided')
+
+        connection = None
+        try:
+            connection = self._db_get_mysql_connection(user, password)
+            self._db_clear_database(connection, mme_host)
+            self._db_add_mme_host(connection, mme_host)
+        except Exception as e:
+            return self.fail('Failed to add MME to HSS database: %s', e)
+        finally:
+            if connection is not None:
+                connection.close()
+
+        return self.ok('MME added to HSS database')
+
+    def _db_get_mysql_connection(self, user, password):
+        try:
+            connection = pymysql.connect(host=self.MYSQL_HOST,
+                                        db=self.MYSQL_DB,
+                                        user=user,
+                                        password=password,
+                                        cursorclass=pymysql.cursors.DictCursor)
+        except pymysql.err.OperationalError as e:
+            raise Exception('Unable to connect ot MySQL', e)
+
+        return connection
+
+    def _db_clear_database(self, conneciton,  mme_host):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(self.MYSQL_SELECT, (mme_host))
+                if cursor.rowcount > 0:
+                    cursor.execute(self.MYSQL_DELETE, (mme_host))
+                    cursor.commit()
+        except Exception as e:
+            raise Exception('Unable to add MME into MySQL', e)
+
+    def _db_add_mme_host(self, connection, mme_host):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(self.MYSQL_INSERT, (mme_host, realm, 0))
+            connection.commit()
+
+            with connection.cursor() as cursor:
+                cursor.execute(self.MYSQL_SELECT, (mme_host))
+                if cursor.rowcount is not 1:
+                    return self.fail('Unable to add MME into MySQL')
+
+                self.logger.debug('MME added to HSS database: %s',
+                                  cursor.fetchone())
+        except Exception as e:
+            raise Exception('Unable to add MME into MySQL', e)
 
 
 class HSS_Processor(P):

@@ -226,6 +226,10 @@ class HSS_Configurator(unittest.TestCase):
         os_fd, self.hss_fd_config = tempfile.mkstemp()
         os.close(os_fd)
 
+        hss_p.HSS_Configurator._db_get_mysql_connection = Mock()
+        hss_p.HSS_Configurator._db_clear_database = Mock()
+        hss_p.HSS_Configurator._db_add_mme_host = Mock()
+
     def tearDown(self):
         os.remove(self.host_file)
         os.remove(self.hss_config)
@@ -318,7 +322,7 @@ class HSS_Configurator(unittest.TestCase):
 
         configurator = hss_p.HSS_Configurator(self.hss_config,
                                               self.hss_fd_config,
-                                              host_file_path = self.host_file)
+                                              self.host_file)
 
         config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
@@ -366,5 +370,63 @@ class HSS_Configurator(unittest.TestCase):
         self.assertIn('%s %s' % (MME_IP, MME_HOST), host_file_content)
         self.assertIn('%s %s' % (HSS_IP, HSS_HOST), host_file_content)
         self.assertIn('%s %s' % (CUSTOM_IP, CUSTOM_H), host_file_content)
+
+        self.assertEqual(result.status, P.Result.WARNING)
+
+    def testUpdateHSSFDConfig(self):
+        IDENTITY = 'Identity'
+        REALM = 'Realm'
+        self.writeContent('%s = "myIdentity";\n' % IDENTITY, self.hss_fd_config)
+        self.writeContent('%s = "myRealm";\n' % REALM, self.hss_fd_config)
+
+        REALM_VALUE = 'domain.my'
+        MME_HOST, MME_IP = 'mme.%s' % REALM_VALUE, '10.0.0.2/24'
+        HSS_HOST, HSS_IP = 'hss.%s' % REALM_VALUE, '10.0.0.3/24'
+        SPGW_HOST, SPGW_IP = 'spgw.%s' % REALM_VALUE, '10.0.0.4/24'
+        MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
+
+        configurator = hss_p.HSS_Configurator(self.hss_config,
+                                              self.hss_fd_config,
+                                              self.host_file)
+
+        config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
+                                  hss_host = HSS_HOST, hss_ip = HSS_IP,
+                                  spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
+                                  mysql_user = MYSQL_USER,
+                                  mysql_pass = MYSQL_PASS)
+
+
+        result = configurator.configure(config)
+
+        fd_config = self.getContent(self.hss_fd_config)
+        self.assertEqual(len(fd_config.splitlines()), 2)
+        self.assertIn('%s = "%s";' % (IDENTITY, HSS_HOST), fd_config)
+        self.assertIn('%s = "%s";' % (REALM, REALM_VALUE), fd_config)
+
+        self.assertEqual(result.status, P.Result.WARNING)
+
+    def testUpdateDB(self):
+
+        REALM_VALUE = 'domain.my'
+        MME_HOST, MME_IP = 'mme.%s' % REALM_VALUE, '10.0.0.2/24'
+        HSS_HOST, HSS_IP = 'hss.%s' % REALM_VALUE, '10.0.0.3/24'
+        SPGW_HOST, SPGW_IP = 'spgw.%s' % REALM_VALUE, '10.0.0.4/24'
+        MYSQL_USER, MYSQL_PASS = 'root', 'hurka'
+
+        configurator = hss_p.HSS_Configurator(self.hss_config,
+                                              self.hss_fd_config,
+                                              self.host_file)
+
+        config = hss_p.HSS_Config(mme_host = MME_HOST, mme_ip = MME_IP,
+                                  hss_host = HSS_HOST, hss_ip = HSS_IP,
+                                  spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
+                                  mysql_user = MYSQL_USER,
+                                  mysql_pass = MYSQL_PASS)
+
+        result = configurator.configure(config)
+
+        configurator._db_add_mme_host.assert_called_once()
+        configurator._db_clear_database.assert_called_once()
+        configurator._db_add_mme_host.assert_called_once()
 
         self.assertEqual(result.status, P.Result.WARNING)
