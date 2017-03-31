@@ -180,7 +180,7 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
         try:
             connection = self._db_get_mysql_connection(user, password)
             self._db_clear_database(connection, mme_host)
-            self._db_add_mme_host(connection, mme_host)
+            self._db_add_mme_host(connection, mme_host, realm)
         except Exception as e:
             return self.fail('Failed to add MME to HSS database: %s', e)
         finally:
@@ -201,7 +201,7 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
 
         return connection
 
-    def _db_clear_database(self, conneciton,  mme_host):
+    def _db_clear_database(self, connection,  mme_host):
         try:
             with connection.cursor() as cursor:
                 cursor.execute(self.MYSQL_SELECT, (mme_host))
@@ -209,9 +209,9 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
                     cursor.execute(self.MYSQL_DELETE, (mme_host))
                     cursor.commit()
         except Exception as e:
-            raise Exception('Unable to add MME into MySQL', e)
+            raise Exception('Unable to clear MME from MySQL', e)
 
-    def _db_add_mme_host(self, connection, mme_host):
+    def _db_add_mme_host(self, connection, mme_host, realm):
         try:
             with connection.cursor() as cursor:
                 cursor.execute(self.MYSQL_INSERT, (mme_host, realm, 0))
