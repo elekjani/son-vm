@@ -43,9 +43,10 @@ class MME_Config(utils.HostConfig, utils.CommandConfig):
 class MME_Configurator(utils.ConfiguratorHelpers):
 
     REGEX_S1_IPV4 = '(MME_IPV4_ADDRESS_FOR_S1_MME += )"%s"' % REGEX_IPV4_MASK
-    REGEX_S11_INTERFACE = '(MME_INTERFACE_NAME_FOR_S11_MME += )"[a-z0-9]+"'
+    REGEX_S11_INTERFACE = '(MME_INTERFACE_NAME_FOR_S11_MME += )"[a-z0-9A-Z\.]+"'
     REGEX_S11_IPV4 = '(MME_IPV4_ADDRESS_FOR_S11_MME += )"%s"' % REGEX_IPV4_MASK
     REGEX_SGW_IPV4 = '(SGW_IPV4_ADDRESS_FOR_S11 += )"%s"' % REGEX_IPV4_MASK
+    REGEX_HSS_HOSTNAME = '(HSS_HOSTNAME *= *)"[a-z0-9A-Z\.]+"'
 
     REGEX_IDENTITY = '(^Identity *= *)"[a-zA-Z\.0-9]+"'
     REGEX_CONNECT_PEER = r'(^ConnectPeer *= *)"[a-zA-Z\.0-9]+"'
@@ -131,9 +132,13 @@ class MME_Configurator(utils.ConfiguratorHelpers):
         s11_intf = mme_config.s11_interface
         mme_ip = mme_config.mme_ip
         spgw_ip = mme_config.spgw_ip
+        hss_host = mme_config.hss_host
 
-        if s11_intf is None and mme_ip is None and spgw_ip is None:
+        if s11_intf is None and mme_ip is None and \
+                spgw_ip is None and hss_host is None:
             return self.warn('No MME configuration is provided')
+
+        hss_host = hss_host.split('.')[0]
 
         new_content = ""
         with open(self._mme_config_path) as f:
@@ -149,6 +154,9 @@ class MME_Configurator(utils.ConfiguratorHelpers):
 
                 if spgw_ip is not None:
                     self.sed_it(self.REGEX_SGW_IPV4, spgw_ip)
+
+                if hss_host is not None:
+                    self.sed_it(self.REGEX_HSS_HOSTNAME, hss_host)
 
                 new_content += self._current_line
 
