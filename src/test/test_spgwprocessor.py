@@ -79,12 +79,12 @@ class SPGW_Processor(unittest.TestCase):
 
 class SPGW_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
-        CONF_SGI_INTERFACE = 'ens3'
+        CONF_SGI_IP = '30.30.30.30/24'
         CONF_S1U_IP = '20.20.20.20/16'
         COMMAND = 'start'
 
         config_dict = {
-            'sgi_interface': CONF_SGI_INTERFACE,
+            'sgi_ip': CONF_SGI_IP,
             's1u_ip': CONF_S1U_IP,
             'command': COMMAND,
             'garbage': {'key1': 1, 'key2': 2}
@@ -92,7 +92,7 @@ class SPGW_MsgParser(unittest.TestCase):
         parser = spgw_p.SPGW_MessageParser(config_dict)
         config = parser.parse()
 
-        self.assertEqual(config.sgi_interface, CONF_SGI_INTERFACE)
+        self.assertEqual(config.sgi_ip, CONF_SGI_IP)
         self.assertEqual(config.s1u_ip, CONF_S1U_IP)
         self.assertEqual(config.command, CommandConfig.START)
 
@@ -152,18 +152,25 @@ class SPGW_Configurator(unittest.TestCase):
         self.writeContent('%s = "3.3.3.3/32"\n' % S1U_IP, self.spgw_config)
 
         CONF_S11_INTERFACE = 'eth0'
-        CONF_SGI_INTERFACE = 'ens3'
+        CONF_SGI_INTERFACE = 'eth2'
+        CONF_SGI_IP = '30.30.30.30/24'
         CONF_S1U_IP = '20.20.20.20/16'
 
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
 
+        ip2interface = {
+            SPGW_IP: CONF_S11_INTERFACE,
+            CONF_SGI_IP: CONF_SGI_INTERFACE
+        }
+
         configurator = spgw_p.SPGW_Configurator(self.spgw_config)
 
-        configurator.getInterfacesName = lambda ip: CONF_S11_INTERFACE
+        configurator.getInterfacesName = \
+            lambda ip: ip2interface[ip] if ip in ip2interface else None
 
-        config = spgw_p.SPGW_Config(sgi_interface = CONF_SGI_INTERFACE,
+        config = spgw_p.SPGW_Config(sgi_ip = CONF_SGI_IP,
                                     s1u_ip = CONF_S1U_IP,
                                     mme_host = MME_HOST, mme_ip = MME_IP,
                                     hss_host = HSS_HOST, hss_ip = HSS_IP,

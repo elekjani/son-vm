@@ -10,7 +10,7 @@ class Client(object):
     def __init__(self, hss_mgmt, mme_mgmt, spgw_mgmt,
                  hss_data, mme_data, spgw_data,
                  hss_host, mme_host, spgw_host,
-                 mme_s1_ip, spgw_s1_ip, spgw_sgi_intf):
+                 mme_s1_ip, spgw_s1_ip, spgw_sgi_ip):
         self.hss_mgmt = hss_mgmt
         self.mme_mgmt = mme_mgmt
         self.spgw_mgmt = spgw_mgmt
@@ -22,7 +22,7 @@ class Client(object):
         self.spgw_host = spgw_host
         self.mme_s1_ip = mme_s1_ip
         self.spgw_s1_ip = spgw_s1_ip
-        self.spgw_sgi_intf = spgw_sgi_intf
+        self.spgw_sgi_ip = spgw_sgi_ip
         self._init_configs()
 
     def _init_connection(self, isStopping = False):
@@ -63,7 +63,7 @@ class Client(object):
 
         self.spgw_config = {
             'hosts': self.hosts,
-            'sgi_interface': self.spgw_sgi_intf,
+            'sgi_ip': self.spgw_sgi_ip,
             's1u_ip': self.spgw_s1_ip
         }
 
@@ -105,8 +105,8 @@ def parseNetworkArgs(argv):
 
     parser.add_argument('--spgw_s1_ip', required=True,
                                  help='Public IP of SPGW')
-    parser.add_argument('--spgw_sgi_intf', required=True,
-                                 help='External interface of SPGW')
+    parser.add_argument('--spgw_sgi_ip', required=True,
+                                 help='External IP of SPGW')
     return parser.parse_known_args(argv)
 
 def parseGeneralArgs(argv):
@@ -141,7 +141,7 @@ def main(argv = sys.argv[1:]):
                spgw_host = configArgs.spgw_host,
                mme_s1_ip = networkArgs.mme_s1_ip,
                spgw_s1_ip = networkArgs.spgw_s1_ip,
-               spgw_sgi_intf = networkArgs.spgw_sgi_intf)
+               spgw_sgi_ip = networkArgs.spgw_sgi_ip)
 
     if generalArgs.stop:
         c.stop()

@@ -308,12 +308,17 @@ class MME_Configurator(unittest.TestCase):
         S11_INTERFACE = 'eth0'
         S1_INTERFACE, S1_IP = 'eth2', '20.0.0.1/24'
 
+        ip2interface = {
+            MME_IP: S11_INTERFACE,
+            S1_IP: S1_INTERFACE
+        }
+
         configurator = mme_p.MME_Configurator(self.mme_config,
                                               self.mme_fd_config,
                                               self.host_file)
 
         configurator.getInterfacesName = \
-            lambda ip: S11_INTERFACE if ip is MME_IP else S1_INTERFACE
+            lambda ip: ip2interface[ip] if ip in ip2interface else None
 
         config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
