@@ -9,7 +9,9 @@ class Client(object):
 
     def __init__(self, hss_mgmt, mme_mgmt, spgw_mgmt,
                  hss_data, mme_data, spgw_data,
-                 hss_host, mme_host, spgw_host):
+                 hss_host, mme_host, spgw_host,
+                 mme_s1_ip, mme_s1_intf, mme_s11_intf,
+                 spgw_s1_ip, spgw_s11_intf, spgw_sgi_intf):
         self.hss_mgmt = hss_mgmt
         self.mme_mgmt = mme_mgmt
         self.spgw_mgmt = spgw_mgmt
@@ -19,6 +21,12 @@ class Client(object):
         self.hss_host = hss_host
         self.mme_host = mme_host
         self.spgw_host = spgw_host
+        self.mme_s1_ip = mme_s1_ip
+        self.mme_s1_intf = mme_s1_intf
+        self.mme_s11_intf = mme_s11_intf
+        self.spgw_s1_ip = spgw_s1_ip
+        self.spgw_s11_intf = spgw_s11_intf
+        self.spgw_sgi_intf = spgw_sgi_intf
         self._init_configs()
 
     def _init_connection(self, isStopping = False):
@@ -54,15 +62,16 @@ class Client(object):
 
         self.mme_config = {
             'hosts': self.hosts,
-            's11_interface': 'eth0'
+            's11_interface': self.mme_s11_intf,
+            's1_interface': self.mme_s1_intf,
+            's1_ip': self.mme_s1_ip
         }
 
         self.spgw_config = {
             'hosts': self.hosts,
-            's11_interface': 'eth0',
-            's11_ip': self.spgw_data,
-            'sgi_interface': 'eth0',
-            's1u_ip': self.spgw_data,
+            's11_interface': self.spgw_s11_intf,
+            'sgi_interface': self.spgw_sgi_intf,
+            's1u_ip': self.spgw_s1_ip
         }
 
     def start(self):
@@ -96,6 +105,23 @@ def parseConfigArgs(argv):
                                  help='Hostname for SPGW')
     return configArguments.parse_args(argv)
 
+def parseNetworkArgs(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mme_s1_ip', required=True,
+                                 help='Public IP of MME')
+    parser.add_argument('--mme_s1_intf', required=True,
+                                 help='Public interface of MME')
+    parser.add_argument('--mme_s11_intf', required=True,
+                                 help='Private interface of MME')
+
+    parser.add_argument('--spgw_s1_ip', required=True,
+                                 help='Public IP of SPGW')
+    parser.add_argument('--spgw_s11_intf', required=True,
+                                 help='Private interface of SPGW')
+    parser.add_argument('--spgw_sgi_intf', required=True,
+                                 help='External interface of SPGW')
+    return parser.parse_known_args(argv)
+
 def parseGeneralArgs(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose','-v', action='store_true', dest='verbose',
@@ -107,6 +133,7 @@ def parseGeneralArgs(argv):
 
 def main(argv = sys.argv[1:]):
     generalArgs, remaining_argv = parseGeneralArgs(argv)
+    networkArgs, remaining_argv = parseNetworkArgs(remaining_argv)
     configArgs = parseConfigArgs(remaining_argv)
 
     if generalArgs.verbose:
@@ -124,7 +151,13 @@ def main(argv = sys.argv[1:]):
                mme_mgmt = configArgs.mme_mgmt, mme_data = configArgs.mme_data,
                spgw_mgmt = configArgs.spgw_mgmt, spgw_data = configArgs.spgw_data,
                hss_host = configArgs.hss_host, mme_host = configArgs.mme_host,
-               spgw_host = configArgs.spgw_host)
+               spgw_host = configArgs.spgw_host,
+               mme_s1_ip = networkArgs.mme_s1_ip,
+               mme_s1_intf = networkArgs.mme_s1_intf,
+               mme_s11_intf = networkArgs.mme_s11_intf,
+               spgw_s1_ip = networkArgs.spgw_s1_ip,
+               spgw_s11_intf = networkArgs.spgw_s11_intf,
+               spgw_sgi_intf = networkArgs.spgw_sgi_intf)
 
     if generalArgs.stop:
         c.stop()

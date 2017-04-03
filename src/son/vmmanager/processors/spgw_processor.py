@@ -1,5 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
+from son.vmmanager.processors.utils import RE_IPV4_MASK
+from son.vmmanager.processors.utils import RE_ASSIGNMENT, RE_NAME
 
 import tempfile
 import logging
@@ -8,13 +10,16 @@ import os
 
 class SPGW_MessageParser(object):
 
+    #This can be looked out based on the S11 IP
     MSG_INTERFACE_S11 = 's11_interface'
-    MSG_IP_S11 = 's11_ip'
+    #Interface to the "Internet"
     MSG_INTERFACE_SGI = 'sgi_interface'
+    #SAP IP to the UE
     MSG_IP_S1U = 's1u_ip'
 
     def __init__(self, json_dict):
         self.logger = logging.getLogger(SPGW_MessageParser.__name__)
+        self.host_parser = utils.HostMessageParser(json_dict)
         self.command_parser = utils.CommandMessageParser(json_dict)
         self.msg_dict = json_dict
 
@@ -26,11 +31,6 @@ class SPGW_MessageParser(object):
             self.logger.info('Got S11 interface coniguration: '
                              '%s' % sc.s11_interface)
 
-        if self.MSG_IP_S11 in self.msg_dict:
-            sc.s11_ip = self.msg_dict[self.MSG_IP_S11]
-            self.logger.info('Got S11 IP coniguration: '
-                             '%s' % sc.s11_ip)
-
         if self.MSG_INTERFACE_SGI in self.msg_dict:
             sc.sgi_interface = self.msg_dict[self.MSG_INTERFACE_SGI]
             self.logger.info('Got SGI INTERFACE coniguration: '
@@ -41,17 +41,17 @@ class SPGW_MessageParser(object):
             self.logger.info('Got S1U IP coniguration: '
                              '%s' % sc.s1u_ip)
 
+        self.host_parser.parse(sc)
         self.command_parser.parse(sc)
 
         return sc
 
 
-class SPGW_Config(utils.CommandConfig):
+class SPGW_Config(utils.CommandConfig, utils.HostConfig):
 
-    def __init__(self, s11_interface = None, s11_ip = None,
-                 sgi_interface = None, s1u_ip = None, **kwargs):
+    def __init__(self, s11_interface = None, sgi_interface = None,
+                 s1u_ip = None, **kwargs):
         self.s11_interface = s11_interface
-        self.s11_ip = s11_ip
         self.sgi_interface = sgi_interface
         self.s1u_ip = s1u_ip
         super(self.__class__, self).__init__(**kwargs)
@@ -59,10 +59,10 @@ class SPGW_Config(utils.CommandConfig):
 
 class SPGW_Configurator(utils.ConfiguratorHelpers):
 
-    REGEX_S11_INTERFACE = '(SGW_INTERFACE_NAME_FOR_S11 += )"[a-z0-9]+"'
-    REGEX_S11_IP = '(SGW_IPV4_ADDRESS_FOR_S11 += )"%s"' % utils.REGEX_IPV4_MASK
-    REGEX_SGI_INTERFACE = '(PGW_INTERFACE_NAME_FOR_SGI += )"[a-z0-9]+"'
-    REGEX_S1U_IP = '(SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP += )"%s"' % utils.REGEX_IPV4_MASK
+    RE_S11_INTERFACE = RE_ASSIGNMENT('SGW_INTERFACE_NAME_FOR_S11', RE_NAME)
+    RE_S11_IP = RE_ASSIGNMENT('SGW_IPV4_ADDRESS_FOR_S11', RE_IPV4_MASK)
+    RE_SGI_INTERFACE = RE_ASSIGNMENT('PGW_INTERFACE_NAME_FOR_SGI', RE_NAME)
+    RE_S1U_IP = RE_ASSIGNMENT('SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP', RE_IPV4_MASK)
 
     def __init__(self, config_path):
         self._spgw_config_path = config_path
@@ -73,7 +73,7 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
             return self.fail('SPGW config file is not found at %s',
                              self._spgw_config_path)
 
-        s11_intf, s11_ip = spgw_config.s11_interface, spgw_config.s11_ip
+        s11_intf, s11_ip = spgw_config.s11_interface, spgw_config.spgw_ip
         sgi_intf, s1u_ip = spgw_config.sgi_interface, spgw_config.s1u_ip
 
         if s11_intf is None and s11_ip is None \
@@ -86,13 +86,13 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
                 self._current_line  = line
 
                 if s11_intf is not None:
-                    self.sed_it(self.REGEX_S11_INTERFACE, s11_intf)
+                    self.sed_it(self.RE_S11_INTERFACE, s11_intf)
                 if s11_ip  is not None:
-                    self.sed_it(self.REGEX_S11_IP, s11_ip)
+                    self.sed_it(self.RE_S11_IP, s11_ip)
                 if sgi_intf is not None:
-                    self.sed_it(self.REGEX_SGI_INTERFACE, sgi_intf)
+                    self.sed_it(self.RE_SGI_INTERFACE, sgi_intf)
                 if s1u_ip is not None:
-                    self.sed_it(self.REGEX_S1U_IP, s1u_ip)
+                    self.sed_it(self.RE_S1U_IP, s1u_ip)
 
                 new_content += self._current_line
 

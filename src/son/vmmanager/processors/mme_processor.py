@@ -1,7 +1,7 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
-from son.vmmanager.processors.utils import REGEX_IPV4_MASK
-from son.vmmanager.processors.utils import REGEX_IPV4
+from son.vmmanager.processors.utils import RE_IPV4_MASK, RE_IPV4
+from son.vmmanager.processors.utils import RE_ASSIGNMENT, RE_NAME
 
 import tempfile
 import logging
@@ -11,7 +11,12 @@ import os
 
 class MME_MessageParser(object):
 
+    #This can be looked out based on the S11 IP
     MSG_S11_INTERFACE = 's11_interface'
+    #This can be looked out based on the S1 IP
+    MSG_S1_INTERFACE = 's1_interface'
+    #SAP IP to the UE
+    MSG_S1_IP = 's1_ip'
 
     def __init__(self, json_dict):
         self.logger = logging.getLogger(MME_MessageParser.__name__)
@@ -27,6 +32,16 @@ class MME_MessageParser(object):
             self.logger.info('Got S11 interface coniguration: '
                              '%s' % mc.s11_interface)
 
+        if self.MSG_S1_INTERFACE in self.msg_dict:
+            mc.s1_interface = self.msg_dict[self.MSG_S1_INTERFACE]
+            self.logger.info('Got S1 interface coniguration: '
+                             '%s' % mc.s1_interface)
+
+        if self.MSG_S1_IP in self.msg_dict:
+            mc.s1_ip = self.msg_dict[self.MSG_S1_IP]
+            self.logger.info('Got S1 IP coniguration: '
+                             '%s' % mc.s1_ip)
+
         self.host_parser.parse(mc)
         self.command_parser.parse(mc)
 
@@ -35,23 +50,27 @@ class MME_MessageParser(object):
 
 class MME_Config(utils.HostConfig, utils.CommandConfig):
 
-    def __init__(self, s11_interface = None, **kwargs):
+    def __init__(self, s11_interface = None, s1_interface = None,
+                 s1_ip = None, **kwargs):
         self.s11_interface = s11_interface
+        self.s1_interface = s1_interface
+        self.s1_ip = s1_ip
         super(self.__class__, self).__init__(**kwargs)
 
 
 class MME_Configurator(utils.ConfiguratorHelpers):
 
-    REGEX_S1_IPV4 = '(MME_IPV4_ADDRESS_FOR_S1_MME += )"%s"' % REGEX_IPV4_MASK
-    REGEX_S11_INTERFACE = '(MME_INTERFACE_NAME_FOR_S11_MME += )"[a-z0-9A-Z\.]+"'
-    REGEX_S11_IPV4 = '(MME_IPV4_ADDRESS_FOR_S11_MME += )"%s"' % REGEX_IPV4_MASK
-    REGEX_SGW_IPV4 = '(SGW_IPV4_ADDRESS_FOR_S11 += )"%s"' % REGEX_IPV4_MASK
-    REGEX_HSS_HOSTNAME = '(HSS_HOSTNAME *= *)"[a-z0-9A-Z\.]+"'
+    RE_S1_INTERFACE = RE_ASSIGNMENT('MME_INTERFACE_NAME_FOR_S1_MME', RE_NAME)
+    RE_S1_IPV4 = RE_ASSIGNMENT('MME_IPV4_ADDRESS_FOR_S1_MME', RE_IPV4_MASK)
+    RE_S11_INTERFACE = RE_ASSIGNMENT('MME_INTERFACE_NAME_FOR_S11_MME', RE_NAME)
+    RE_S11_IPV4 = RE_ASSIGNMENT('MME_IPV4_ADDRESS_FOR_S11_MME', RE_IPV4_MASK)
+    RE_SGW_IPV4 = RE_ASSIGNMENT('SGW_IPV4_ADDRESS_FOR_S11', RE_IPV4_MASK)
+    RE_HSS_HOSTNAME = RE_ASSIGNMENT('HSS_HOSTNAME', RE_NAME)
 
-    REGEX_IDENTITY = '(^Identity *= *)"[a-zA-Z\.0-9]+"'
-    REGEX_CONNECT_PEER = r'(^ConnectPeer *= *)"[a-zA-Z\.0-9]+"'
-    REGEX_CONNECT_TO = r'(ConnectTo *= *)"%s"' % REGEX_IPV4
-    REGEX_REALM = r'([Rr]ealm *= *)"[a-zA-Z\.0-9]+"'
+    RE_IDENTITY = RE_ASSIGNMENT('^Identity', RE_NAME)
+    RE_CONNECT_PEER = RE_ASSIGNMENT('^ConnectPeer', RE_NAME)
+    RE_CONNECT_TO = RE_ASSIGNMENT('ConnectTo', RE_IPV4)
+    RE_REALM = RE_ASSIGNMENT('[Rr]ealm', RE_NAME)
 
     def __init__(self, config_path, fd_config_path, host_file_path,
                  cert_exe = None, cert_path = None):
@@ -107,16 +126,16 @@ class MME_Configurator(utils.ConfiguratorHelpers):
                 self._current_line = line
 
                 if mme_host is not None:
-                    self.sed_it(self.REGEX_IDENTITY, mme_host)
+                    self.sed_it(self.RE_IDENTITY, mme_host)
 
                 if realm is not None:
-                    self.sed_it(self.REGEX_REALM, realm)
+                    self.sed_it(self.RE_REALM, realm)
 
                 if hss_host is not None:
-                    self.sed_it(self.REGEX_CONNECT_PEER, hss_host)
+                    self.sed_it(self.RE_CONNECT_PEER, hss_host)
 
                 if hss_ip is not None:
-                    self.sed_it(self.REGEX_CONNECT_TO, hss_ip)
+                    self.sed_it(self.RE_CONNECT_TO, hss_ip)
 
                 new_content += self._current_line
 
@@ -129,13 +148,16 @@ class MME_Configurator(utils.ConfiguratorHelpers):
             return self.fail('MME config file is not found at %s',
                              self._mme_config_path)
 
+        s1_intf = mme_config.s1_interface
         s11_intf = mme_config.s11_interface
+        s1_ip = mme_config.s1_ip
         mme_ip = mme_config.mme_ip
         spgw_ip = mme_config.spgw_ip
         hss_host = mme_config.hss_host
 
         if s11_intf is None and mme_ip is None and \
-                spgw_ip is None and hss_host is None:
+                spgw_ip is None and hss_host is None and \
+                s1_intf is None and s1_ip is None:
             return self.warn('No MME configuration is provided')
 
         hss_host = hss_host.split('.')[0]
@@ -145,18 +167,23 @@ class MME_Configurator(utils.ConfiguratorHelpers):
             for line in f:
                 self._current_line  = line
 
+                if s1_intf is not None:
+                    self.sed_it(self.RE_S1_INTERFACE, s1_intf)
+
                 if s11_intf is not None:
-                    self.sed_it(self.REGEX_S11_INTERFACE, s11_intf)
+                    self.sed_it(self.RE_S11_INTERFACE, s11_intf)
 
                 if mme_ip is not None:
-                    self.sed_it(self.REGEX_S11_IPV4, mme_ip)
-                    self.sed_it(self.REGEX_S1_IPV4, mme_ip)
+                    self.sed_it(self.RE_S11_IPV4, mme_ip)
+
+                if s1_ip is not None:
+                    self.sed_it(self.RE_S1_IPV4, s1_ip)
 
                 if spgw_ip is not None:
-                    self.sed_it(self.REGEX_SGW_IPV4, spgw_ip)
+                    self.sed_it(self.RE_SGW_IPV4, spgw_ip)
 
                 if hss_host is not None:
-                    self.sed_it(self.REGEX_HSS_HOSTNAME, hss_host)
+                    self.sed_it(self.RE_HSS_HOSTNAME, hss_host)
 
                 new_content += self._current_line
 

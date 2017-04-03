@@ -1,5 +1,6 @@
 from son.vmmanager.jsonserver import IJsonProcessor as P
 from son.vmmanager.processors import utils
+from son.vmmanager.processors.utils import RE_ASSIGNMENT, RE_NAME
 
 import pymysql.cursors
 import tempfile
@@ -48,11 +49,11 @@ class HSS_Config(utils.HostConfig, utils.CommandConfig):
 
 class HSS_Configurator(utils.ConfiguratorHelpers):
 
-    REGEX_MYSQL_USER = '(.*)"@MYSQL_user@"'
-    REGEX_MYSQL_PASS = '(.*)"@MYSQL_pass@"'
+    RE_MYSQL_USER = '(.*)"@MYSQL_user@"'
+    RE_MYSQL_PASS = '(.*)"@MYSQL_pass@"'
 
-    REGEX_IDENTITY = '(^Identity = )"[a-zA-Z\.0-9]+"'
-    REGEX_REALM = r'([Rr]ealm = )"[a-zA-Z\.0-9]+"'
+    RE_IDENTITY = RE_ASSIGNMENT('^Identity', RE_NAME)
+    RE_REALM = RE_ASSIGNMENT('[Rr]ealm', RE_NAME)
 
     MYSQL_HOST = 'localhost'
     MYSQL_DB = 'oai_db'
@@ -125,10 +126,10 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
                 self._current_line = line
 
                 if hss_host is not None:
-                    self.sed_it(self.REGEX_IDENTITY, hss_host)
+                    self.sed_it(self.RE_IDENTITY, hss_host)
 
                 if realm is not None:
-                    self.sed_it(self.REGEX_REALM, realm)
+                    self.sed_it(self.RE_REALM, realm)
 
                 new_content += self._current_line
 
@@ -153,8 +154,8 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
             for line in f:
                 self._current_line  = line
 
-                self.sed_it(self.REGEX_MYSQL_USER, user)
-                self.sed_it(self.REGEX_MYSQL_PASS, password)
+                self.sed_it(self.RE_MYSQL_USER, user)
+                self.sed_it(self.RE_MYSQL_PASS, password)
 
                 new_content += self._current_line
 

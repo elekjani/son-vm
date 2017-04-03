@@ -297,11 +297,13 @@ class MME_Configurator(unittest.TestCase):
     def testUpdateMMEConfig(self):
         MME_INTF_S11 = 'MME_INTERFACE_NAME_FOR_S11_MME'
         MME_IP_S11 = 'MME_IPV4_ADDRESS_FOR_S11_MME'
+        MME_INTF_S1 = 'MME_INTERFACE_NAME_FOR_S1_MME'
         MME_IP_S1 = 'MME_IPV4_ADDRESS_FOR_S1_MME'
         SPGW_IP_S11 = 'SGW_IPV4_ADDRESS_FOR_S11'
         HSS_HOSTNAME = 'HSS_HOSTNAME'
         self.writeContent('%s = "lo";\n' % MME_INTF_S11, self.mme_config)
         self.writeContent('%s = "1.1.1.1/8";\n' % MME_IP_S11, self.mme_config)
+        self.writeContent('%s = "ens3";\n' % MME_INTF_S1, self.mme_config)
         self.writeContent('%s = "2.2.2.2/16";\n' % MME_IP_S1, self.mme_config)
         self.writeContent('%s = "3.3.3.3/32";\n' % SPGW_IP_S11, self.mme_config)
         self.writeContent('%s = "oldHostName";\n' % HSS_HOSTNAME, self.mme_config)
@@ -310,6 +312,7 @@ class MME_Configurator(unittest.TestCase):
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
         S11_INTERFACE = 'eth0'
+        S1_INTERFACE, S1_IP = 'eth2', '20.0.0.1/24'
 
         configurator = mme_p.MME_Configurator(self.mme_config,
                                               self.mme_fd_config,
@@ -318,15 +321,17 @@ class MME_Configurator(unittest.TestCase):
         config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
-                                  s11_interface = S11_INTERFACE)
+                                  s11_interface = S11_INTERFACE,
+                                  s1_interface = S1_INTERFACE, s1_ip = S1_IP)
 
         configurator.configure(config)
 
         mme_config = self.getContent(self.mme_config)
-        self.assertEqual(len(mme_config.splitlines()), 5)
+        self.assertEqual(len(mme_config.splitlines()), 6)
         self.assertIn('%s = "%s";' % (MME_INTF_S11, S11_INTERFACE), mme_config)
         self.assertIn('%s = "%s";' % (MME_IP_S11, MME_IP), mme_config)
-        self.assertIn('%s = "%s";' % (MME_IP_S1, MME_IP), mme_config)
+        self.assertIn('%s = "%s";' % (MME_INTF_S1, S1_INTERFACE), mme_config)
+        self.assertIn('%s = "%s";' % (MME_IP_S1, S1_IP), mme_config)
         self.assertIn('%s = "%s";' % (SPGW_IP_S11, SPGW_IP), mme_config)
         self.assertIn('%s = "%s";' % (HSS_HOSTNAME, HSS_HOST.split('.')[0]), mme_config)
 

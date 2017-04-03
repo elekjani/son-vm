@@ -80,14 +80,12 @@ class SPGW_Processor(unittest.TestCase):
 class SPGW_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
         CONF_S11_INTERFACE = 'eth0'
-        CONF_S11_IP = '10.10.10.10/8'
         CONF_SGI_INTERFACE = 'ens3'
         CONF_S1U_IP = '20.20.20.20/16'
         COMMAND = 'start'
 
         config_dict = {
             's11_interface': CONF_S11_INTERFACE,
-            's11_ip': CONF_S11_IP,
             'sgi_interface': CONF_SGI_INTERFACE,
             's1u_ip': CONF_S1U_IP,
             'command': COMMAND,
@@ -97,7 +95,6 @@ class SPGW_MsgParser(unittest.TestCase):
         config = parser.parse()
 
         self.assertEqual(config.s11_interface, CONF_S11_INTERFACE)
-        self.assertEqual(config.s11_ip, CONF_S11_IP)
         self.assertEqual(config.sgi_interface, CONF_SGI_INTERFACE)
         self.assertEqual(config.s1u_ip, CONF_S1U_IP)
         self.assertEqual(config.command, CommandConfig.START)
@@ -158,22 +155,27 @@ class SPGW_Configurator(unittest.TestCase):
         self.writeContent('%s = "3.3.3.3/32"\n' % S1U_IP, self.spgw_config)
 
         CONF_S11_INTERFACE = 'eth0'
-        CONF_S11_IP = '10.10.10.10/8'
         CONF_SGI_INTERFACE = 'ens3'
         CONF_S1U_IP = '20.20.20.20/16'
+
+        MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
+        HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
+        SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
 
         configurator = spgw_p.SPGW_Configurator(self.spgw_config)
 
         config = spgw_p.SPGW_Config(s11_interface = CONF_S11_INTERFACE,
-                                    s11_ip = CONF_S11_IP,
                                     sgi_interface = CONF_SGI_INTERFACE,
-                                    s1u_ip = CONF_S1U_IP)
+                                    s1u_ip = CONF_S1U_IP,
+                                    mme_host = MME_HOST, mme_ip = MME_IP,
+                                    hss_host = HSS_HOST, hss_ip = HSS_IP,
+                                    spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
         configurator.configure(config)
 
         spgw_config = self.getContent(self.spgw_config)
         self.assertEqual(len(spgw_config.splitlines()), 4)
         self.assertIn('%s = "%s"' % (S11_INTERFACE, CONF_S11_INTERFACE), spgw_config)
-        self.assertIn('%s = "%s"' % (S11_IP, CONF_S11_IP), spgw_config)
+        self.assertIn('%s = "%s"' % (S11_IP, SPGW_IP), spgw_config)
         self.assertIn('%s = "%s"' % (SGI_INTERFACE, CONF_SGI_INTERFACE), spgw_config)
         self.assertIn('%s = "%s"' % (S1U_IP, CONF_S1U_IP), spgw_config)

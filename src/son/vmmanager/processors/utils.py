@@ -10,9 +10,11 @@ import shutil
 import tempfile
 import threading
 
-REGEX_IPV4_NUMBER = '[0-9]{1,3}'
-REGEX_IPV4 = r'\.'.join([REGEX_IPV4_NUMBER] * 4)
-REGEX_IPV4_MASK = REGEX_IPV4 + '/[0-9]{1,2}'
+RE_IPV4_NUMBER = '\d{1,3}'
+RE_IPV4 = r'\.'.join([RE_IPV4_NUMBER] * 4)
+RE_IPV4_MASK = RE_IPV4 + '/\d{1,2}'
+RE_ASSIGNMENT = lambda variable, value: r'(%s\s*=\s*)"%s"' % (variable, value)
+RE_NAME = r'[\w\.-]+'
 
 class ConfiguratorHelpers(object):
 
@@ -127,7 +129,7 @@ class HostMessageParser(object):
             return None, None
 
         host, ip = host_dict[self.MSG_HOST_NAME], host_dict[self.MSG_IP_ADDRESS]
-        if re.match(REGEX_IPV4_MASK, ip) is None:
+        if re.match(RE_IPV4_MASK, ip) is None:
             self.logger.warning('Got invalid IP address %s', ip)
             host, ip = None, None
 
