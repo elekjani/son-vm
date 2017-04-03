@@ -82,7 +82,6 @@ class MME_MsgParser(unittest.TestCase):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
         COMMAND = 'start'
 
         config_dict = {
@@ -92,7 +91,6 @@ class MME_MsgParser(unittest.TestCase):
                 'spgw': {'host_name': SPGW_HOST, 'ip': SPGW_IP},
                 'garbage': [1,2,3]
             },
-            's11_interface': S11_INTERFACE,
             'command': COMMAND,
             'garbage': {'key1': 1, 'key2': 2}
         }
@@ -105,7 +103,6 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.hss_ip, HSS_IP)
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
-        self.assertEqual(config.s11_interface, S11_INTERFACE)
         self.assertEqual(config.command, CommandConfig.START)
 
     def testPartlyHostConfig(self):
@@ -156,7 +153,6 @@ class MME_MsgParser(unittest.TestCase):
         MME_HOST, MME_IP = 'mme.domain.my', '10.0.0.2/24'
         HSS_HOST, HSS_IP = 'hss.domain.my', '10.0.0.3/24'
         SPGW_HOST, SPGW_IP = 'spgw.domain.my', '10.0.0.4/24'
-        S11_INTERFACE = 'eth0'
         COMMAND = 'start'
 
         config_dict = {
@@ -165,7 +161,6 @@ class MME_MsgParser(unittest.TestCase):
                 'hss': {'host_name': HSS_HOST, 'ip': HSS_IP},
                 'spgw': {'host_name': SPGW_HOST, 'ip': SPGW_IP}
             },
-            's11_interface': S11_INTERFACE,
             'command': COMMAND
         }
         parser = mme_p.MME_MessageParser(config_dict)
@@ -177,7 +172,6 @@ class MME_MsgParser(unittest.TestCase):
         self.assertEqual(config.hss_ip, HSS_IP)
         self.assertEqual(config.spgw_host, SPGW_HOST)
         self.assertEqual(config.spgw_ip, SPGW_IP)
-        self.assertEqual(config.s11_interface, S11_INTERFACE)
         self.assertEqual(config.command, CommandConfig.START)
 
     def testInvlidIP(self):
@@ -318,11 +312,13 @@ class MME_Configurator(unittest.TestCase):
                                               self.mme_fd_config,
                                               self.host_file)
 
+        configurator.getInterfacesName = \
+            lambda ip: S11_INTERFACE if ip is MME_IP else S1_INTERFACE
+
         config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
                                   spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
-                                  s11_interface = S11_INTERFACE,
-                                  s1_interface = S1_INTERFACE, s1_ip = S1_IP)
+                                  s1_ip = S1_IP)
 
         configurator.configure(config)
 
@@ -361,8 +357,7 @@ class MME_Configurator(unittest.TestCase):
 
         config = mme_p.MME_Config(mme_host = MME_HOST, mme_ip = MME_IP,
                                   hss_host = HSS_HOST, hss_ip = HSS_IP,
-                                  spgw_host = SPGW_HOST, spgw_ip = SPGW_IP,
-                                  s11_interface = S11_INTERFACE)
+                                  spgw_host = SPGW_HOST, spgw_ip = SPGW_IP)
 
         configurator.configure(config)
 

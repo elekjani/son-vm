@@ -7,6 +7,14 @@ import os.path
 
 logging.basicConfig(level=logging.DEBUG)
 
+class ConfigurationHelper(unittest.TestCase):
+
+    def testGetInterface(self):
+        ch = utils.ConfiguratorHelpers()
+        lo = ch.getInterfacesName('127.0.0.1/24')
+        self.assertIsNotNone(lo)
+
+
 class Runner(unittest.TestCase):
 
     def setUp(self):

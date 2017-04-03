@@ -9,6 +9,7 @@ import psutil
 import shutil
 import tempfile
 import threading
+from netifaces import interfaces, ifaddresses
 
 RE_IPV4_NUMBER = '\d{1,3}'
 RE_IPV4 = r'\.'.join([RE_IPV4_NUMBER] * 4)
@@ -41,6 +42,18 @@ class ConfiguratorHelpers(object):
 
     def ip(self, masked_ip):
         return masked_ip.split('/')[0] if masked_ip is not None else None
+
+    def getInterfacesName(self, ipAddress):
+        striped_ip = self.ip(ipAddress)
+        for intf in interfaces():
+            addressesByType = ifaddresses(intf)
+            for addresses in addressesByType.values():
+                for address in addresses:
+                    if striped_ip == address['addr']:
+                        return intf
+
+        self.logger.warning('No interfaces is found for IP %s', ipAddress)
+        return None
 
     def fail(self, message, *args, **kwords):
         self.logger.error(message, *args)

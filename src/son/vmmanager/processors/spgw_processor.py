@@ -10,8 +10,6 @@ import os
 
 class SPGW_MessageParser(object):
 
-    #This can be looked out based on the S11 IP
-    MSG_INTERFACE_S11 = 's11_interface'
     #Interface to the "Internet"
     MSG_INTERFACE_SGI = 'sgi_interface'
     #SAP IP to the UE
@@ -25,11 +23,6 @@ class SPGW_MessageParser(object):
 
     def parse(self):
         sc = SPGW_Config()
-
-        if self.MSG_INTERFACE_S11 in self.msg_dict:
-            sc.s11_interface = self.msg_dict[self.MSG_INTERFACE_S11]
-            self.logger.info('Got S11 interface coniguration: '
-                             '%s' % sc.s11_interface)
 
         if self.MSG_INTERFACE_SGI in self.msg_dict:
             sc.sgi_interface = self.msg_dict[self.MSG_INTERFACE_SGI]
@@ -49,9 +42,8 @@ class SPGW_MessageParser(object):
 
 class SPGW_Config(utils.CommandConfig, utils.HostConfig):
 
-    def __init__(self, s11_interface = None, sgi_interface = None,
+    def __init__(self, sgi_interface = None,
                  s1u_ip = None, **kwargs):
-        self.s11_interface = s11_interface
         self.sgi_interface = sgi_interface
         self.s1u_ip = s1u_ip
         super(self.__class__, self).__init__(**kwargs)
@@ -73,7 +65,8 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
             return self.fail('SPGW config file is not found at %s',
                              self._spgw_config_path)
 
-        s11_intf, s11_ip = spgw_config.s11_interface, spgw_config.spgw_ip
+        s11_intf = self.getInterfacesName(spgw_config.spgw_ip)
+        s11_ip = spgw_config.spgw_ip
         sgi_intf, s1u_ip = spgw_config.sgi_interface, spgw_config.s1u_ip
 
         if s11_intf is None and s11_ip is None \

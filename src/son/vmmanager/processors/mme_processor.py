@@ -11,10 +11,6 @@ import os
 
 class MME_MessageParser(object):
 
-    #This can be looked out based on the S11 IP
-    MSG_S11_INTERFACE = 's11_interface'
-    #This can be looked out based on the S1 IP
-    MSG_S1_INTERFACE = 's1_interface'
     #SAP IP to the UE
     MSG_S1_IP = 's1_ip'
 
@@ -26,16 +22,6 @@ class MME_MessageParser(object):
 
     def parse(self):
         mc = MME_Config()
-
-        if self.MSG_S11_INTERFACE in self.msg_dict:
-            mc.s11_interface = self.msg_dict[self.MSG_S11_INTERFACE]
-            self.logger.info('Got S11 interface coniguration: '
-                             '%s' % mc.s11_interface)
-
-        if self.MSG_S1_INTERFACE in self.msg_dict:
-            mc.s1_interface = self.msg_dict[self.MSG_S1_INTERFACE]
-            self.logger.info('Got S1 interface coniguration: '
-                             '%s' % mc.s1_interface)
 
         if self.MSG_S1_IP in self.msg_dict:
             mc.s1_ip = self.msg_dict[self.MSG_S1_IP]
@@ -50,10 +36,7 @@ class MME_MessageParser(object):
 
 class MME_Config(utils.HostConfig, utils.CommandConfig):
 
-    def __init__(self, s11_interface = None, s1_interface = None,
-                 s1_ip = None, **kwargs):
-        self.s11_interface = s11_interface
-        self.s1_interface = s1_interface
+    def __init__(self, s1_ip = None, **kwargs):
         self.s1_ip = s1_ip
         super(self.__class__, self).__init__(**kwargs)
 
@@ -148,9 +131,9 @@ class MME_Configurator(utils.ConfiguratorHelpers):
             return self.fail('MME config file is not found at %s',
                              self._mme_config_path)
 
-        s1_intf = mme_config.s1_interface
-        s11_intf = mme_config.s11_interface
         s1_ip = mme_config.s1_ip
+        s1_intf = self.getInterfacesName(s1_ip)
+        s11_intf = self.getInterfacesName(mme_config.mme_ip)
         mme_ip = mme_config.mme_ip
         spgw_ip = mme_config.spgw_ip
         hss_host = mme_config.hss_host

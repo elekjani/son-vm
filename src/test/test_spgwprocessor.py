@@ -79,13 +79,11 @@ class SPGW_Processor(unittest.TestCase):
 
 class SPGW_MsgParser(unittest.TestCase):
     def testFullConfigWithGarbage(self):
-        CONF_S11_INTERFACE = 'eth0'
         CONF_SGI_INTERFACE = 'ens3'
         CONF_S1U_IP = '20.20.20.20/16'
         COMMAND = 'start'
 
         config_dict = {
-            's11_interface': CONF_S11_INTERFACE,
             'sgi_interface': CONF_SGI_INTERFACE,
             's1u_ip': CONF_S1U_IP,
             'command': COMMAND,
@@ -94,7 +92,6 @@ class SPGW_MsgParser(unittest.TestCase):
         parser = spgw_p.SPGW_MessageParser(config_dict)
         config = parser.parse()
 
-        self.assertEqual(config.s11_interface, CONF_S11_INTERFACE)
         self.assertEqual(config.sgi_interface, CONF_SGI_INTERFACE)
         self.assertEqual(config.s1u_ip, CONF_S1U_IP)
         self.assertEqual(config.command, CommandConfig.START)
@@ -164,8 +161,9 @@ class SPGW_Configurator(unittest.TestCase):
 
         configurator = spgw_p.SPGW_Configurator(self.spgw_config)
 
-        config = spgw_p.SPGW_Config(s11_interface = CONF_S11_INTERFACE,
-                                    sgi_interface = CONF_SGI_INTERFACE,
+        configurator.getInterfacesName = lambda ip: CONF_S11_INTERFACE
+
+        config = spgw_p.SPGW_Config(sgi_interface = CONF_SGI_INTERFACE,
                                     s1u_ip = CONF_S1U_IP,
                                     mme_host = MME_HOST, mme_ip = MME_IP,
                                     hss_host = HSS_HOST, hss_ip = HSS_IP,

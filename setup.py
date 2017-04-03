@@ -8,7 +8,8 @@ setup(
         package_dir={'': 'src'},
         packages=find_packages('src'),  # dependency resolution
         namespace_packages=['son', ],
-        install_requires=['setuptools', 'twisted', 'psutil', 'pymysql'],
+        install_requires=['setuptools', 'twisted', 'psutil',
+                          'pymysql', 'netifaces'],
         zip_safe=False,
         entry_points={
             'console_scripts': [
