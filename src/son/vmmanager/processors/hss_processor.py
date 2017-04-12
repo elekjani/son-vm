@@ -72,7 +72,7 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
     MYSQL_SELECT = MYSQL_SELECT % (MYSQL_MME_TABLE,
                                    MYSQL_MME_HOST_COLUMN)
 
-    MYSQL_DELETE = 'DELETE * FROM `%s` WHERE `%s`=%%s'
+    MYSQL_DELETE = 'DELETE FROM `%s` WHERE `%s`=%%s'
     MYSQL_DELETE = MYSQL_DELETE % (MYSQL_MME_TABLE,
                                    MYSQL_MME_HOST_COLUMN)
 
@@ -207,8 +207,9 @@ class HSS_Configurator(utils.ConfiguratorHelpers):
             with connection.cursor() as cursor:
                 cursor.execute(self.MYSQL_SELECT, (mme_host))
                 if cursor.rowcount > 0:
-                    cursor.execute(self.MYSQL_DELETE, (mme_host))
-                    cursor.commit()
+                    with connection.cursor() as delete_cursor:
+                        delete_cursor.execute(self.MYSQL_DELETE, (mme_host))
+                        connection.commit()
         except Exception as e:
             raise Exception('Unable to clear MME from MySQL', e)
 
