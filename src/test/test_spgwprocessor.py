@@ -146,10 +146,12 @@ class SPGW_Configurator(unittest.TestCase):
         S11_IP = 'SGW_IPV4_ADDRESS_FOR_S11'
         SGI_INTERFACE = 'PGW_INTERFACE_NAME_FOR_SGI'
         S1U_IP = 'SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP'
+        PGW_MASQ = 'PGW_MASQUERADE_SGI'
         self.writeContent('%s = "lo"\n' % S11_INTERFACE, self.spgw_config)
         self.writeContent('%s = "1.1.1.1/8"\n' % S11_IP, self.spgw_config)
         self.writeContent('%s = "eth2"\n' % SGI_INTERFACE, self.spgw_config)
         self.writeContent('%s = "3.3.3.3/32"\n' % S1U_IP, self.spgw_config)
+        self.writeContent('%s = "no"\n' % PGW_MASQ, self.spgw_config)
 
         CONF_S11_INTERFACE = 'eth0'
         CONF_SGI_INTERFACE = 'eth2'
@@ -179,8 +181,9 @@ class SPGW_Configurator(unittest.TestCase):
         configurator.configure(config)
 
         spgw_config = self.getContent(self.spgw_config)
-        self.assertEqual(len(spgw_config.splitlines()), 4)
+        self.assertEqual(len(spgw_config.splitlines()), 5)
         self.assertIn('%s = "%s"' % (S11_INTERFACE, CONF_S11_INTERFACE), spgw_config)
         self.assertIn('%s = "%s"' % (S11_IP, SPGW_IP), spgw_config)
         self.assertIn('%s = "%s"' % (SGI_INTERFACE, CONF_SGI_INTERFACE), spgw_config)
         self.assertIn('%s = "%s"' % (S1U_IP, CONF_S1U_IP), spgw_config)
+        self.assertIn('%s = "%s"' % (PGW_MASQ, 'yes'), spgw_config)

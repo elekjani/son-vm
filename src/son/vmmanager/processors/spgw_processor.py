@@ -54,6 +54,7 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
     RE_S11_IP = RE_ASSIGNMENT('SGW_IPV4_ADDRESS_FOR_S11', RE_IPV4_MASK)
     RE_SGI_INTERFACE = RE_ASSIGNMENT('PGW_INTERFACE_NAME_FOR_SGI', RE_NAME)
     RE_S1U_IP = RE_ASSIGNMENT('SGW_IPV4_ADDRESS_FOR_S1U_S12_S4_UP', RE_IPV4_MASK)
+    RE_PGW_MASQ = RE_ASSIGNMENT('PGW_MASQUERADE_SGI', 'no')
 
     def __init__(self, config_path):
         self._spgw_config_path = config_path
@@ -86,6 +87,8 @@ class SPGW_Configurator(utils.ConfiguratorHelpers):
                     self.sed_it(self.RE_SGI_INTERFACE, sgi_intf)
                 if s1u_ip is not None:
                     self.sed_it(self.RE_S1U_IP, s1u_ip)
+
+                self.sed_it(self.RE_PGW_MASQ, 'yes')
 
                 new_content += self._current_line
 
